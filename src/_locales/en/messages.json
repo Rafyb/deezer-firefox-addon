@@ -1,0 +1,49 @@
+{
+  "extensionName": { "message": "Remote for Deezer" },
+  "extensionDescription": { "message": "Control the Deezer web player from any tab, or in the background." },
+  "commandTogglePlay": { "message": "Play / pause" },
+  "commandNextTrack": { "message": "Next track" },
+  "commandPreviousTrack": { "message": "Previous track" },
+  "commandToggleLike": { "message": "Add to / remove from Favourite tracks" },
+
+  "noDeezerTab": { "message": "No Deezer tab open." },
+  "launchHidden": { "message": "Open Deezer in the background" },
+  "loading": { "message": "Loading" },
+  "deezerLoading": { "message": "Deezer is loading…" },
+  "deezerWaking": { "message": "Waking up the sleeping Deezer tab…" },
+  "noTitle": { "message": "No track" },
+
+  "showDeezerTab": { "message": "Show the Deezer tab" },
+  "hideDeezerTab": { "message": "Hide the Deezer tab" },
+  "position": { "message": "Position" },
+  "shuffle": { "message": "Shuffle" },
+  "previous": { "message": "Previous" },
+  "next": { "message": "Next" },
+  "play": { "message": "Play" },
+  "pause": { "message": "Pause" },
+  "playPause": { "message": "Play / pause" },
+  "repeat": { "message": "Repeat" },
+  "favourites": { "message": "Favourite tracks" },
+  "muteTab": { "message": "Mute the tab" },
+  "unmuteTab": { "message": "Unmute the tab" },
+  "volume": { "message": "Volume" },
+
+  "autoplayBlockedTitle": { "message": "Firefox is blocking sound on Deezer" },
+  "autoplayBlockedText": { "message": "Until you click inside the Deezer tab, the play button can't start the music." },
+  "autoplayHowtoStart": { "message": "To allow it once and for all: in the Deezer tab, click the icon left of the address →" },
+  "autoplayMenu": { "message": "Autoplay" },
+  "autoplayOption": { "message": "Allow Audio and Video" },
+  "autoplayHowtoEnd": { "message": ", then reload the page." },
+
+  "errorElementNotFound": {
+    "message": "Element not found: $NAME$",
+    "placeholders": { "name": { "content": "$1" } }
+  },
+  "errorProgressNotFound": { "message": "Progress bar not found" },
+  "errorVolumeSliderNotFound": { "message": "Volume slider not found" },
+  "errorVolumeButtonNotFound": { "message": "Volume button not found" },
+  "errorUnknownAction": {
+    "message": "Unknown action: $ACTION$",
+    "placeholders": { "action": { "content": "$1" } }
+  }
+}

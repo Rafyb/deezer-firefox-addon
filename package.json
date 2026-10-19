@@ -1,0 +1,23 @@
+{
+  "name": "deezer-firefox-addon",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Firefox extension to control the Deezer web player from any tab",
+  "author": "Raphael Bauvin",
+  "license": "MIT",
+  "keywords": [
+    "firefox",
+    "webextension",
+    "deezer",
+    "music",
+    "remote"
+  ],
+  "scripts": {
+    "start": "web-ext run --source-dir src --start-url https://www.deezer.com",
+    "lint": "web-ext lint --source-dir src",
+    "build": "web-ext build --source-dir src --artifacts-dir dist --overwrite-dest"
+  },
+  "devDependencies": {
+    "web-ext": "^8.3.0"
+  }
+}

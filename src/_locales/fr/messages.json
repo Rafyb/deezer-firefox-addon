@@ -1,0 +1,49 @@
+{
+  "extensionName": { "message": "Remote for Deezer" },
+  "extensionDescription": { "message": "Contrôle le lecteur web Deezer depuis n'importe quel onglet, ou en arrière-plan." },
+  "commandTogglePlay": { "message": "Lecture / pause" },
+  "commandNextTrack": { "message": "Titre suivant" },
+  "commandPreviousTrack": { "message": "Titre précédent" },
+  "commandToggleLike": { "message": "Ajouter / retirer des Coups de cœur" },
+
+  "noDeezerTab": { "message": "Aucun onglet Deezer ouvert." },
+  "launchHidden": { "message": "Lancer Deezer en arrière-plan" },
+  "loading": { "message": "Chargement" },
+  "deezerLoading": { "message": "Deezer est en cours de chargement…" },
+  "deezerWaking": { "message": "Réveil de l'onglet Deezer en veille…" },
+  "noTitle": { "message": "Aucun titre" },
+
+  "showDeezerTab": { "message": "Afficher l'onglet Deezer" },
+  "hideDeezerTab": { "message": "Cacher l'onglet Deezer" },
+  "position": { "message": "Position" },
+  "shuffle": { "message": "Aléatoire" },
+  "previous": { "message": "Précédent" },
+  "next": { "message": "Suivant" },
+  "play": { "message": "Lecture" },
+  "pause": { "message": "Pause" },
+  "playPause": { "message": "Lecture / pause" },
+  "repeat": { "message": "Répétition" },
+  "favourites": { "message": "Coups de cœur" },
+  "muteTab": { "message": "Couper le son de l'onglet" },
+  "unmuteTab": { "message": "Rétablir le son de l'onglet" },
+  "volume": { "message": "Volume" },
+
+  "autoplayBlockedTitle": { "message": "Firefox bloque le son sur Deezer" },
+  "autoplayBlockedText": { "message": "Tant que tu n'as pas cliqué dans l'onglet Deezer, le bouton lecture ne peut pas lancer la musique." },
+  "autoplayHowtoStart": { "message": "Pour l'autoriser une fois pour toutes : dans l'onglet Deezer, icône à gauche de l'adresse →" },
+  "autoplayMenu": { "message": "Lecture automatique" },
+  "autoplayOption": { "message": "Autoriser l'audio et la vidéo" },
+  "autoplayHowtoEnd": { "message": ", puis recharge la page." },
+
+  "errorElementNotFound": {
+    "message": "Élément introuvable : $NAME$",
+    "placeholders": { "name": { "content": "$1" } }
+  },
+  "errorProgressNotFound": { "message": "Barre de progression introuvable" },
+  "errorVolumeSliderNotFound": { "message": "Slider de volume introuvable" },
+  "errorVolumeButtonNotFound": { "message": "Bouton de volume introuvable" },
+  "errorUnknownAction": {
+    "message": "Action inconnue : $ACTION$",
+    "placeholders": { "action": { "content": "$1" } }
+  }
+}
