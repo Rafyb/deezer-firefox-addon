@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-19
+
+First public release.
+
 ### Added
 
 - Popup remote: cover, title, artists, seekable progress, play/pause, previous/next, shuffle, repeat, Favourite tracks, volume and tab mute.
@@ -13,3 +17,6 @@ All notable changes to this project are documented here. The format follows [Kee
 - Automatic wake-up of sleeping Deezer tabs.
 - Warning when Firefox blocks autoplay, and a one-time workaround for tabs that were never shown.
 - English and French translations.
+
+[Unreleased]: https://github.com/Rafyb/deezer-firefox-addon/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/Rafyb/deezer-firefox-addon/releases/tag/v0.1.0
