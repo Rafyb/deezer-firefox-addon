@@ -8,7 +8,7 @@ Open an issue with the **Bug report** template. Please include your Firefox vers
 
 ## Development setup
 
-Requirements: Node.js 20+ and Firefox 128+.
+Requirements: Node.js 20+ and Firefox 140+.
 
 ```bash
 npm install

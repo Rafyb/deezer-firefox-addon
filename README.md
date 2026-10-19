@@ -29,7 +29,7 @@ Remote for Deezer is not published on [addons.mozilla.org](https://addons.mozill
 2. Open `about:debugging#/runtime/this-firefox` in Firefox.
 3. Click **Load Temporary Add-on…** and select `src/manifest.json`.
 
-Temporary add-ons are removed when Firefox restarts. Requires Firefox 128 or later.
+Temporary add-ons are removed when Firefox restarts. Requires Firefox 140 or later.
 
 ## Usage
 
@@ -71,7 +71,7 @@ npm run build  # packages the extension into dist/
 
 ```
 src/
-├── manifest.json        Manifest V3 (Firefox ≥ 128)
+├── manifest.json        Manifest V3 (Firefox ≥ 140)
 ├── background.js        Routes popup/shortcut commands to the Deezer tab, manages the hidden tab
 ├── content/deezer.js    Reads the player state and acts on the Deezer page (all DOM selectors live here)
 ├── popup/               Remote UI (popup.html/css/js, cover colors, i18n helper)
