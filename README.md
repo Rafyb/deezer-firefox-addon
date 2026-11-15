@@ -6,13 +6,19 @@ A Firefox extension to control the Deezer web player from any tab — or with De
 
 ## Features
 
-- **Popup remote**: cover art and track info on a background gradient taken from the cover colors, seekable progress bar (click the duration to show the remaining time), play/pause, previous/next, shuffle, repeat, Favourite tracks, volume (also with the mouse wheel over the remote), tab mute. Icons in the top-right corner: open the mini-player, show/hide the Deezer tab, copy the track link. Next to the heart, the queue button shows the queue in the Deezer tab. The gear at the bottom left shows the *Options* row (always shown at the bottom of the mini-player window): sleep timer, and on/off toggles for keyboard shortcuts, the "Search on Deezer" menu and auto-pause.
-- **Search on Deezer**: right-click selected text on any page → *Search "…" on Deezer* opens the Deezer search in a new tab (a new tab so the music keeps playing). Can be turned off from the popup.
+- **Popup remote**:
+  - cover art and track info on a background gradient taken from the cover colors;
+  - seekable progress bar (click the duration to show the remaining time);
+  - play/pause, previous/next, shuffle, repeat, Favourite tracks, volume (also with the mouse wheel over the remote), tab mute;
+  - top-right corner: open the mini-player, show/hide the Deezer tab, copy the track link;
+  - next to the heart: show the queue in the Deezer tab;
+  - the gear at the bottom left shows the *Options* row: sleep timer, and on/off toggles for keyboard shortcuts, the "Search on Deezer" menu and auto-pause.
+- **Mini-player**: the arrow icon in the top-right corner of the popup opens the remote in its own small window, which stays open and in sync (Options row always shown). Firefox can't keep it always on top.
+- **Sleep timer**: the moon icon in the popup's options pauses playback after 15, 30 or 60 minutes (click again to cycle, then turn off), with a short volume fade-out first. The volume is restored for the next play. Changing the volume during the fade-out cancels it.
 - **Auto-pause** *(opt-in)*: Deezer pauses when another tab starts playing sound (a video, a call) and resumes when it stops. It only resumes what it paused itself, in the same Deezer tab, and never after the sleep timer went off.
+- **Search on Deezer**: right-click selected text on any page → *Search "…" on Deezer* opens the Deezer search in a new tab (a new tab so the music keeps playing). The remote keeps controlling the tab that was playing. Can be turned off from the popup.
+- **Track notifications** *(opt-in)*: a system notification when the track changes, unless Deezer is on screen; click it to show the Deezer tab. Turn it on in `about:addons` → Remote for Deezer → *Options*.
 - **Toolbar tooltip**: hover the toolbar icon to see the current track.
-- **Mini-player**: the arrow icon in the top-right corner of the popup opens the remote in its own small window, which stays open. Firefox can't keep it always on top.
-- **Track notifications** *(opt-in)*: a system notification when the track changes, unless Deezer is on screen. Turn it on in `about:addons` → Remote for Deezer → *Options*.
-- **Sleep timer**: the moon icon in the popup's options pauses playback after 15, 30 or 60 minutes, with a short volume fade-out first. The volume is restored for the next play.
 - **Background mode**: open Deezer in a hidden tab (Firefox `tabHide` API) and toggle its visibility with the eye icon (top-right corner of the popup).
 - **Keyboard shortcuts**, working from any tab:
 
@@ -26,6 +32,7 @@ A Firefox extension to control the Deezer web player from any tab — or with De
 
   Change them in `about:addons` → ⚙️ → *Manage Extension Shortcuts*. Turn them all off (and back on, with your choices kept) from the keyboard button in the popup's options.
 - **Media keys and system media controls**: handled natively by the Deezer web player (Media Session API), even in a hidden tab: keyboard media keys, headset buttons and the Windows media overlay work without extra setup.
+- **Several Deezer tabs**: the remote controls the tab playing sound, otherwise the one that played last, so a second Deezer tab (a search, for instance) doesn't take over.
 - **Sleeping tabs**: Deezer tabs that Firefox restored without loading are woken up automatically when you open the popup or use a control. If Firefox puts the tab to sleep while the mini-player is open, it stays asleep until you click *Wake Deezer up*.
 - **Languages**: English by default, French when Firefox is in French.
 
@@ -43,13 +50,16 @@ Temporary add-ons are removed when Firefox restarts. Requires Firefox 140 or lat
 
 1. Log in to [deezer.com](https://www.deezer.com) in Firefox.
 2. Click the toolbar icon to open the remote. If no Deezer tab is open, click **Open Deezer in the background**.
-3. Control playback from the popup or with the keyboard shortcuts.
+3. Control playback from the popup, the mini-player or the keyboard shortcuts.
+
+If the popup keeps saying it is waiting for the Deezer player, Deezer needs you in its tab (logged out, cookie banner…): click **Show the Deezer tab**.
 
 ## Known limitations
 
 - **Autoplay blocking**: Firefox blocks sound in a tab until you have clicked inside it. Simulated clicks from an extension don't count. If the popup warns that sound is blocked, allow it once for deezer.com: in the Deezer tab, click the icon left of the address bar → *Autoplay* → *Allow Audio and Video*.
 - **First play in a hidden tab**: Firefox also holds back sound in tabs that have never been in the foreground. When needed, the extension shows the Deezer tab for a split second before the first play. You may see a short flash, and the popup may close.
 - **Deezer UI changes**: the extension drives the Deezer web player through its page structure. A Deezer redesign can break some controls until the selectors are updated; the popup greys out the controls it can no longer find (see [Contributing](CONTRIBUTING.md)).
+- **Auto-pause and sleeping tabs**: if Firefox unloads the paused Deezer tab during a long video (low memory), the music doesn't resume afterwards.
 - **No playback without the Deezer web player**: Deezer's public API only provides 30-second previews, so the extension always relies on an open (possibly hidden) Deezer tab.
 
 ## Privacy
@@ -62,7 +72,7 @@ Remote for Deezer collects no data and has no server. It only talks to the Deeze
 | `tabHide` | Hide the Deezer tab in background mode. |
 | `scripting` | Re-inject the controller into a Deezer tab that lost it. |
 | `alarms` | Trigger the sleep timer, even if Firefox has unloaded the extension's background page meanwhile. |
-| `storage` | Remember your settings (including your shortcuts while they are turned off), and, for the current session only, which tabs have already been shown (see *Known limitations*). |
+| `storage` | Remember your settings (including your shortcuts while they are turned off), and, for the current browser session only, which Deezer tab is the player, what auto-pause paused, the last notified track and which tabs have already been shown (see *Known limitations*). |
 | `menus` | Add *Search on Deezer* to the context menu of selected text. |
 | `notifications` *(optional)* | Track change notifications. Only requested when you turn them on in the options. |
 | `www.deezer.com` | Read the player state and click its controls. |
