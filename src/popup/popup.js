@@ -492,10 +492,17 @@ async function loadSleepTimer() {
 loadSleepTimer();
 setInterval(loadSleepTimer, 10000);
 
-// Full refresh (tab info included), at most one at a time.
+// Full refresh (tab info included), at most one at a time. Not through call():
+// it would clear an error the user hasn't read yet.
 let refreshing = null;
 function refreshStatus() {
-  refreshing ??= call("remote:getStatus").finally(() => (refreshing = null));
+  refreshing ??= browser.runtime
+    .sendMessage({ type: "remote:getStatus" })
+    .then(render)
+    .catch(() => {
+      // Background unavailable: the next push retries.
+    })
+    .finally(() => (refreshing = null));
   return refreshing;
 }
 

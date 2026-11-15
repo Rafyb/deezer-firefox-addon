@@ -8,30 +8,48 @@ const READY_TIMEOUT_MS = 15000;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Player tab: the Deezer tab that last played (or was launched hidden). Other
-// Deezer tabs (search opened from the context menu, a tab opened by hand)
-// mustn't take the remote over while the player is paused. Mirrored in memory:
-// the content script pushes its state every second while playing.
-let playerTabId;
-
-async function getPlayerTabId() {
-  if (playerTabId === undefined) {
-    ({ playerTabId = null } = await browser.storage.session.get("playerTabId"));
-  }
-  return playerTabId;
+// State kept in session storage (the event page unloads, e.g. while Deezer is
+// paused) and mirrored in memory (read on every push while playing). Loaded
+// once: concurrent reads share the same load, which never overwrites a value
+// set meanwhile.
+function sessionValue(key) {
+  let value = null;
+  let loaded = false;
+  let loading = null;
+  return {
+    async get() {
+      if (!loaded) {
+        loading ??= browser.storage.session.get(key).then((stored) => {
+          if (!loaded) value = stored[key] ?? null;
+          loaded = true;
+        });
+        await loading;
+      }
+      return value;
+    },
+    async set(newValue) {
+      value = newValue ?? null;
+      loaded = true;
+      if (value == null) await browser.storage.session.remove(key);
+      else await browser.storage.session.set({ [key]: value });
+    },
+  };
 }
 
+// Player tab: the Deezer tab that last played (or was launched hidden). Other
+// Deezer tabs (search opened from the context menu, a tab opened by hand)
+// mustn't take the remote over while the player is paused.
+const playerTab = sessionValue("playerTabId");
+
 async function rememberPlayerTab(tabId) {
-  if ((await getPlayerTabId()) === tabId) return;
-  playerTabId = tabId;
-  await browser.storage.session.set({ playerTabId: tabId });
+  if ((await playerTab.get()) !== tabId) await playerTab.set(tabId);
 }
 
 // Prefer the tab playing sound, then the player tab, then a loaded tab, then
 // a sleeping one.
 async function findDeezerTab() {
   const tabs = await browser.tabs.query({ url: DEEZER_MATCH });
-  const playerId = await getPlayerTabId();
+  const playerId = await playerTab.get();
   return (
     tabs.find((t) => t.audible) ??
     tabs.find((t) => t.id === playerId) ??
@@ -225,7 +243,7 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name !== SLEEP_ALARM) return;
   // Deezer may already be auto-paused: it mustn't resume once the other tab
   // goes quiet.
-  await setAutoPausedAt(null);
+  await autoPausedAt.set(null);
   // No need to wake a sleeping tab: it isn't playing.
   const tab = await findDeezerTab();
   if (tab && !tab.discarded) await sendToDeezer(tab, { type: "command", action: "fadeOutAndPause" });
@@ -233,24 +251,27 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
 
 // Toolbar icon tooltip: current track, or the extension name (manifest
 // default) when nothing is loaded. Follows one tab: the one playing, so that a
-// paused second Deezer tab doesn't overwrite it.
-let actionTitle = null;
-let actionTitleTab = null;
+// paused second Deezer tab doesn't overwrite it. The followed tab is kept in
+// session storage: the title stays displayed after the event page unloads.
+let actionTitle;
+const actionTitleTab = sessionValue("actionTitleTab");
 
-function updateActionTitle(tabId, state) {
-  if (actionTitleTab != null && tabId !== actionTitleTab && !state?.playing) return;
-  actionTitleTab = tabId;
+async function updateActionTitle(tabId, state) {
+  const followed = await actionTitleTab.get();
+  if (followed != null && tabId !== followed && !state?.playing) return;
+  if (tabId !== followed) await actionTitleTab.set(tabId);
   const title = state?.available && state.title ? `${state.title} - ${state.artists.join(", ")}` : null;
   if (title === actionTitle) return;
   actionTitle = title;
-  browser.action.setTitle({ title });
+  await browser.action.setTitle({ title });
 }
 
-browser.tabs.onRemoved.addListener((tabId) => {
-  if (tabId !== actionTitleTab) return;
+browser.tabs.onRemoved.addListener(async (tabId) => {
+  if (tabId !== (await actionTitleTab.get())) return;
   // The next push from another Deezer tab takes over.
-  updateActionTitle(tabId, null);
-  actionTitleTab = null;
+  actionTitle = null;
+  await browser.action.setTitle({ title: null });
+  await actionTitleTab.set(null);
 });
 
 // Keyboard shortcuts on/off from the popup. Ignoring the commands wouldn't be
@@ -277,8 +298,11 @@ async function applyShortcuts(enabled) {
   if (!enabled && !savedShortcuts) {
     await clearShortcuts({});
   } else if (enabled && savedShortcuts) {
+    // A shortcut set by hand (about:addons) while off wins over the saved one.
+    const current = await browser.commands.getAll();
+    const unset = new Set(current.filter((c) => !c.shortcut).map((c) => c.name));
     for (const [name, shortcut] of Object.entries(savedShortcuts)) {
-      await browser.commands.update({ name, shortcut });
+      if (unset.has(name)) await browser.commands.update({ name, shortcut });
     }
     await browser.storage.local.remove("savedShortcuts");
   }
@@ -327,15 +351,11 @@ async function createSearchMenu() {
 }
 
 // Only toggles visibility: removeAll + create from two quick clicks could
-// interleave and fail on an existing id.
+// interleave and fail on an existing id. The menu always exists: created at
+// install and startup.
 async function setSearchMenu(enabled) {
   await browser.storage.local.set({ searchMenuEnabled: enabled });
-  try {
-    await browser.menus.update(SEARCH_MENU, { visible: enabled });
-  } catch {
-    // Menu missing (not created yet): create it with the new setting.
-    await createSearchMenu();
-  }
+  await browser.menus.update(SEARCH_MENU, { visible: enabled });
   return getSearchMenu();
 }
 
@@ -381,34 +401,31 @@ async function getAutoPause() {
 
 async function setAutoPause(enabled) {
   await browser.storage.local.set({ autoPauseEnabled: enabled });
-  if (!enabled) await setAutoPausedAt(null);
+  if (!enabled) await autoPausedAt.set(null);
   return getAutoPause();
 }
 
-// Mirrored in memory: read on every push while playing.
-let autoPausedAt;
+const autoPausedAt = sessionValue("autoPausedAt");
 
-async function getAutoPausedAt() {
-  if (autoPausedAt === undefined) {
-    ({ autoPausedAt = null } = await browser.storage.session.get("autoPausedAt"));
-  }
-  return autoPausedAt;
-}
+// Tab events run one after the other: closing a video tab can report
+// audible: false and the removal almost together, and both would send "play"
+// before Deezer's button updates; the second click would pause again.
+let autoPauseOp = Promise.resolve();
 
-async function setAutoPausedAt(value) {
-  autoPausedAt = value;
-  if (value) await browser.storage.session.set({ autoPausedAt: value });
-  else await browser.storage.session.remove("autoPausedAt");
+function queueAutoPause(fn) {
+  autoPauseOp = autoPauseOp.then(fn).catch(() => {});
 }
 
 async function onOtherTabSound(tab) {
   if (isDeezerTab(tab) || !(await getAutoPause()).enabled) return;
   if (isHeard(tab)) {
+    // Already paused by us (another tab started first).
+    if (await autoPausedAt.get()) return;
     const deezer = await findDeezerTab();
     if (!deezer || deezer.discarded) return;
     const state = await sendToDeezer(deezer, { type: "getState" });
     if (!state?.playing) return;
-    await setAutoPausedAt(Date.now());
+    await autoPausedAt.set(Date.now());
     await sendToDeezer(deezer, { type: "command", action: "pause" });
   } else {
     await resumeIfQuiet();
@@ -416,25 +433,25 @@ async function onOtherTabSound(tab) {
 }
 
 async function resumeIfQuiet() {
-  if (!(await getAutoPausedAt())) return;
+  if (!(await autoPausedAt.get())) return;
   const audible = await browser.tabs.query({ audible: true });
   if (audible.some((t) => !isDeezerTab(t) && isHeard(t))) return;
-  await setAutoPausedAt(null);
+  await autoPausedAt.set(null);
   const deezer = await findDeezerTab();
   if (deezer && !deezer.discarded) await sendToDeezer(deezer, { type: "command", action: "play" });
 }
 
 async function clearAutoPauseIfPlaying(state) {
   if (!state?.playing) return;
-  const pausedAt = await getAutoPausedAt();
-  if (pausedAt && Date.now() - pausedAt > AUTO_PAUSE_GRACE_MS) await setAutoPausedAt(null);
+  const pausedAt = await autoPausedAt.get();
+  if (pausedAt && Date.now() - pausedAt > AUTO_PAUSE_GRACE_MS) await autoPausedAt.set(null);
 }
 
-browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => onOtherTabSound(tab), {
+browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => queueAutoPause(() => onOtherTabSound(tab)), {
   properties: ["audible", "mutedInfo"],
 });
 // A closed tab doesn't always report audible: false first.
-browser.tabs.onRemoved.addListener(() => resumeIfQuiet());
+browser.tabs.onRemoved.addListener(() => queueAutoPause(resumeIfQuiet));
 
 // Opens Deezer's queue panel, then brings the tab to the front.
 async function showQueue() {
@@ -451,7 +468,7 @@ async function showQueue() {
 // pushes for the same track cost nothing.
 const TRACK_NOTIFICATION = "track";
 let trackCheck = Promise.resolve();
-let lastTrack;
+const lastTrack = sessionValue("lastTrack");
 
 function onPlayerState(tab, state) {
   trackCheck = trackCheck.then(() => notifyTrackChange(tab, state)).catch(() => {});
@@ -462,10 +479,8 @@ async function notifyTrackChange(tab, state) {
   // The link holds the track ID when known: tells apart two tracks with the
   // same title.
   const track = `${state.title} - ${state.artists.join(", ")} - ${state.link ?? ""}`;
-  if (lastTrack === undefined) ({ lastTrack = null } = await browser.storage.session.get("lastTrack"));
-  if (track === lastTrack) return;
-  lastTrack = track;
-  await browser.storage.session.set({ lastTrack: track });
+  if (track === (await lastTrack.get())) return;
+  await lastTrack.set(track);
 
   const { notifyTrackChange: enabled = false } = await browser.storage.local.get("notifyTrackChange");
   if (!enabled || !browser.notifications) return;
