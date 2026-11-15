@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-15
+
 ### Added
 
 - Keyboard shortcuts to turn the Deezer volume up and down (`Alt+Shift+Up` / `Alt+Shift+Down`, 10 % steps).
@@ -42,6 +44,7 @@ First public release.
 - Warning when Firefox blocks autoplay, and a one-time workaround for tabs that were never shown.
 - English and French translations.
 
-[Unreleased]: https://github.com/Rafyb/deezer-firefox-addon/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/Rafyb/deezer-firefox-addon/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Rafyb/deezer-firefox-addon/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/Rafyb/deezer-firefox-addon/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Rafyb/deezer-firefox-addon/releases/tag/v0.1.0
