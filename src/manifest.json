@@ -26,7 +26,12 @@
     "tabs",
     "tabHide",
     "scripting",
-    "storage"
+    "storage",
+    "alarms",
+    "menus"
+  ],
+  "optional_permissions": [
+    "notifications"
   ],
   "host_permissions": [
     "*://www.deezer.com/*"
@@ -48,6 +53,9 @@
       "run_at": "document_idle"
     }
   ],
+  "options_ui": {
+    "page": "options/options.html"
+  },
   "action": {
     "default_title": "__MSG_extensionName__",
     "default_popup": "popup/popup.html",
@@ -74,6 +82,18 @@
     },
     "toggle-like": {
       "description": "__MSG_commandToggleLike__"
+    },
+    "volume-up": {
+      "suggested_key": {
+        "default": "Alt+Shift+Up"
+      },
+      "description": "__MSG_commandVolumeUp__"
+    },
+    "volume-down": {
+      "suggested_key": {
+        "default": "Alt+Shift+Down"
+      },
+      "description": "__MSG_commandVolumeDown__"
     }
   }
 }

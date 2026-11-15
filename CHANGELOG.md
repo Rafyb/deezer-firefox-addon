@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Keyboard shortcuts to turn the Deezer volume up and down (`Alt+Shift+Up` / `Alt+Shift+Down`, 10 % steps).
+- Sleep timer in the popup (15, 30 or 60 minutes), with a volume fade-out before pausing. Requires the new `alarms` permission.
+- Mini-player: open the remote in its own window from the popup.
+- Opt-in track change notifications, from the new options page (optional `notifications` permission).
+- Click the track duration to show the remaining time.
+- Mouse wheel on the remote changes the volume.
+- Toolbar icon tooltip shows the current track.
+- Opt-in auto-pause: Deezer pauses while another tab plays sound, and resumes afterwards.
+- "Search on Deezer" in the context menu of selected text, can be turned off from the popup (new `menus` permission).
+- Popup layout: mini-player, show/hide tab and copy link in the top-right corner; queue button next to the heart; a gear button shows the Options row (sleep timer, keyboard shortcuts, search menu, auto-pause).
+
+### Changed
+
+- The eye (show/hide the Deezer tab) moved to the top-right corner of the popup.
+- Controls the extension can no longer find in the Deezer page are greyed out in the popup, instead of showing an error when clicked.
+
 ## [0.1.1] - 2026-10-19
 
 ### Fixed

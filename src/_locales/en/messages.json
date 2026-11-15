@@ -5,6 +5,8 @@
   "commandNextTrack": { "message": "Next track" },
   "commandPreviousTrack": { "message": "Previous track" },
   "commandToggleLike": { "message": "Add to / remove from Favourite tracks" },
+  "commandVolumeUp": { "message": "Volume up" },
+  "commandVolumeDown": { "message": "Volume down" },
 
   "noDeezerTab": { "message": "No Deezer tab open." },
   "launchHidden": { "message": "Open Deezer in the background" },
@@ -27,6 +29,33 @@
   "muteTab": { "message": "Mute the tab" },
   "unmuteTab": { "message": "Unmute the tab" },
   "volume": { "message": "Volume" },
+  "sleepTimerOff": { "message": "Sleep timer: off (click for 15, 30 or 60 min)" },
+  "sleepTimerOn": {
+    "message": "Sleep timer: pauses in $MINUTES$ min (click to change)",
+    "placeholders": { "minutes": { "content": "$1" } }
+  },
+
+  "detach": { "message": "Open the mini-player in its own window" },
+  "showRemaining": { "message": "Show remaining time" },
+  "showDuration": { "message": "Show track duration" },
+  "showOptions": { "message": "Options" },
+  "hideOptions": { "message": "Hide options" },
+  "shortcutsOn": { "message": "Keyboard shortcuts: on (click to turn off)" },
+  "shortcutsOff": { "message": "Keyboard shortcuts: off (click to turn on)" },
+  "searchMenuOn": { "message": "\"Search on Deezer\" for selected text: on (click to turn off)" },
+  "searchMenuOff": { "message": "\"Search on Deezer\" for selected text: off (click to turn on)" },
+  "searchOnDeezer": { "message": "Search \"%s\" on Deezer" },
+  "optionsLabel": { "message": "Options" },
+  "autoPauseOn": { "message": "Auto-pause when another tab plays sound: on (click to turn off)" },
+  "autoPauseOff": { "message": "Auto-pause when another tab plays sound: off (click to turn on)" },
+  "copyLink": { "message": "Copy the track link" },
+  "linkCopied": { "message": "Link copied" },
+  "showQueue": { "message": "Show the queue in the Deezer tab" },
+  "controlUnavailable": { "message": "Unavailable: Deezer no longer shows this control (the page may have changed)" },
+
+  "optionNotifyTrackChange": { "message": "Notify when the track changes" },
+  "optionNotifyTrackChangeHint": { "message": "Shows a system notification with the title and artists, unless the Deezer tab is on screen. Firefox asks for the notifications permission." },
+  "optionPermissionDenied": { "message": "Permission denied: notifications stay off." },
 
   "autoplayBlockedTitle": { "message": "Firefox is blocking sound on Deezer" },
   "autoplayBlockedText": { "message": "Until you click inside the Deezer tab, the play button can't start the music." },

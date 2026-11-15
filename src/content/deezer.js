@@ -24,7 +24,11 @@ function setup() {
     like: '[data-testid^="add_to_favorite_button_"]',
     progress: '[data-testid="progress_bar"]',
     volumeButton: '[data-testid^="volume_button_"]',
+    queue: '[data-testid="queue_list_button"]',
   };
+  // Queue panel, present only while it is open.
+  const QUEUE_PANEL = '[data-testid="queue_content"]';
+  const CONTROLS = ["play", "next", "previous", "shuffle", "repeat", "like", "progress", "volumeButton", "queue"];
   // The volume slider is in a popover rendered outside #page_player, and only
   // while the menu is open (on button hover).
   const VOLUME_BAR = '[data-testid="volume_menu_bar"]';
@@ -46,6 +50,19 @@ function setup() {
     return el?.dataset.testid?.slice(prefix.length) ?? null;
   }
 
+  // Link to the track itself: the title link in the player leads to the album.
+  // The track ID isn't in the DOM; Deezer's legacy player global exposes it.
+  // Page internals, so anything unexpected falls back to the album link.
+  function trackLink() {
+    try {
+      const id = window.wrappedJSObject.dzPlayer?.getSongId?.();
+      if (/^\d+$/.test(String(id))) return `https://www.deezer.com/track/${id}`;
+    } catch {
+      // Global missing or changed.
+    }
+    return q("titleLink")?.href ?? null;
+  }
+
   function readState() {
     const player = document.querySelector(SELECTORS.player);
     if (!player) return { available: false };
@@ -54,7 +71,7 @@ function setup() {
     return {
       available: true,
       title: q("title")?.textContent.trim() ?? "",
-      link: q("titleLink")?.href ?? null,
+      link: trackLink(),
       artists: [...player.querySelectorAll(SELECTORS.artists)].map((a) => a.textContent.trim()),
       cover: q("cover")?.src ?? null,
       // The button shows the available action: "pause" means it's playing.
@@ -69,6 +86,9 @@ function setup() {
       elapsed: progress ? Number(progress.getAttribute("aria-valuenow")) || 0 : 0,
       duration: progress ? Number(progress.max) || 0 : 0,
       volume,
+      // Controls missing from the page (Deezer redesign): the popup disables
+      // them instead of failing on click.
+      missing: CONTROLS.filter((name) => !q(name)),
     };
   }
 
@@ -131,6 +151,34 @@ function setup() {
     }
   }
 
+  const setVolume = (value) => withVolumeBar((bar) => setSlider(bar, value));
+
+  // Sleep timer: lowers the volume step by step, pauses, then restores the
+  // volume so the next play isn't silent. One step per second: Firefox
+  // throttles timers in background tabs to 1 s anyway. The volume menu is
+  // reopened at each step rather than held open, in case Deezer closes it.
+  const FADE_STEPS = 15;
+  const FADE_STEP_MS = 1000;
+
+  async function fadeOutAndPause() {
+    if (!readState().playing) return;
+    await withVolumeBar(() => {});
+    const initial = volume;
+    try {
+      for (let i = FADE_STEPS - 1; i >= 0; i--) {
+        // Paused by the user meanwhile: stop fading.
+        if (!readState().playing) return;
+        await setVolume(Math.round((initial * i) / FADE_STEPS));
+        await wait(FADE_STEP_MS);
+      }
+      if (readState().playing) click("play");
+      // Let the pause take effect before turning the sound back up.
+      await wait(500);
+    } finally {
+      await setVolume(initial);
+    }
+  }
+
   const ACTIONS = {
     togglePlay: () => click("play"),
     play: () => readState().playing || click("play"),
@@ -142,7 +190,18 @@ function setup() {
     toggleLike: () => click("like"),
     seek: (value) => seek(value),
     readVolume: () => withVolumeBar(() => {}),
-    setVolume: (value) => withVolumeBar((bar) => setSlider(bar, value)),
+    setVolume: (value) => setVolume(value),
+    fadeOutAndPause: () => fadeOutAndPause(),
+    // Toggle button: only click when the panel isn't already open.
+    openQueue: () => document.querySelector(QUEUE_PANEL) || click("queue"),
+    // Keyboard shortcuts: relative to the slider's current value, the cache
+    // may be stale (volume changed in the Deezer page).
+    changeVolume: async (delta) => {
+      await withVolumeBar((bar) => setSlider(bar, Number(bar.value) + delta));
+      // The slider lives outside #page_player: the observer doesn't see the
+      // change, so tell an open popup.
+      schedulePush();
+    },
   };
 
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

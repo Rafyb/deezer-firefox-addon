@@ -1,0 +1,15 @@
+:root { color-scheme: light dark; }
+
+body {
+  margin: 0;
+  padding: 12px 0;
+  font: 14px/1.4 system-ui, sans-serif;
+}
+
+.option { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.option input { margin-top: 3px; }
+.option small { display: block; opacity: .7; }
+
+.error { color: #d70022; }
+
+[hidden] { display: none !important; }

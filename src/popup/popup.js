@@ -3,6 +3,10 @@ import { t, translatePage } from "./i18n.js";
 
 translatePage();
 
+// Same page for the toolbar popup and the mini-player window.
+const detached = new URLSearchParams(location.search).has("detached");
+document.documentElement.classList.toggle("detached", detached);
+
 const $ = (id) => document.getElementById(id);
 
 const ui = {
@@ -26,6 +30,16 @@ const ui = {
   repeatOne: $("repeat-one"),
   mute: $("mute"),
   volume: $("volume"),
+  sleep: $("sleep"),
+  sleepMinutes: $("sleep-minutes"),
+  detach: $("detach"),
+  optionsToggle: $("options-toggle"),
+  options: $("options"),
+  shortcuts: $("shortcuts"),
+  searchMenu: $("search-menu"),
+  autoPause: $("auto-pause"),
+  share: $("share"),
+  queue: $("queue"),
   visibility: $("visibility"),
   autoplayWarning: $("autoplay-warning"),
   autoplayShow: $("autoplay-show"),
@@ -50,6 +64,55 @@ let sendingVolume = false;
 function formatTime(seconds) {
   const s = Math.max(0, Math.floor(seconds || 0));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+// Right-hand time: total duration, or remaining time after a click on it
+// (remembered, shared with the mini-player).
+let showRemaining = false;
+browser.storage.local.get("showRemaining").then((stored) => {
+  showRemaining = !!stored.showRemaining;
+  renderDuration();
+});
+
+function renderDuration() {
+  const duration = current.state?.duration ?? 0;
+  const elapsed = seeking ? Number(ui.seek.value) : (current.state?.elapsed ?? 0);
+  ui.duration.textContent = showRemaining ? `-${formatTime(duration - elapsed)}` : formatTime(duration);
+  ui.duration.title = showRemaining ? t("showDuration") : t("showRemaining");
+}
+
+// Content script control name -> popup elements.
+const CONTROL_ELEMENTS = {
+  play: ["play"],
+  next: ["next"],
+  previous: ["previous"],
+  shuffle: ["shuffle"],
+  repeat: ["repeat"],
+  like: ["like"],
+  progress: ["seek"],
+  volumeButton: ["volume"],
+  queue: ["queue"],
+};
+
+// Controls Deezer no longer shows: disabled with an explanation, rather than
+// an error on click.
+function renderMissingControls(missing = []) {
+  for (const [name, elements] of Object.entries(CONTROL_ELEMENTS)) {
+    const unavailable = missing.includes(name);
+    for (const id of elements) {
+      const el = ui[id];
+      el.classList.toggle("unavailable", unavailable);
+      // The volume slider stays disabled until its value is known.
+      if (id !== "volume" || unavailable) el.disabled = unavailable;
+      if (unavailable) {
+        el.dataset.originalTitle ??= el.title;
+        el.title = t("controlUnavailable");
+      } else if (el.dataset.originalTitle != null) {
+        el.title = el.dataset.originalTitle;
+        delete el.dataset.originalTitle;
+      }
+    }
+  }
 }
 
 function showError(message) {
@@ -108,7 +171,9 @@ function render({ tab, state }) {
     ui.seek.value = String(state.elapsed);
     ui.elapsed.textContent = formatTime(state.elapsed);
   }
-  ui.duration.textContent = formatTime(state.duration);
+  renderDuration();
+  renderMissingControls(state.missing);
+  ui.share.disabled = !state.link;
 
   // Unblocked meanwhile: click in the Deezer tab or site allowed.
   if (state.autoplay === "allowed") playBlocked = false;
@@ -163,10 +228,29 @@ ui.mute.addEventListener("click", () => call("remote:toggleMute"));
 ui.visibility.addEventListener("click", () =>
   call(current.tab?.hidden ? "remote:showTab" : "remote:hideTab"),
 );
-ui.autoplayShow.addEventListener("click", () => call("remote:showTab").then(() => window.close()));
+// The toolbar popup gets in the way once the Deezer tab is shown; the
+// mini-player stays open.
+const closePopup = () => detached || window.close();
+
+ui.autoplayShow.addEventListener("click", () => call("remote:showTab").then(closePopup));
 ui.title.addEventListener("click", (event) => {
   event.preventDefault();
-  call("remote:showTab").then(() => window.close());
+  call("remote:showTab").then(closePopup);
+});
+
+// Mini-player: a small window with the same page. Firefox can't keep it
+// always on top. No windows API on Android.
+const MINI_PLAYER_URL = browser.runtime.getURL("popup/popup.html?detached");
+const MINI_PLAYER_SIZE = { width: 340, height: 500 };
+
+ui.detach.hidden = detached || !browser.windows;
+ui.detach.addEventListener("click", async () => {
+  // Only one mini-player: focus the existing one.
+  const windows = await browser.windows.getAll({ populate: true, windowTypes: ["popup"] });
+  const existing = windows.find((w) => w.tabs.some((tab) => tab.url === MINI_PLAYER_URL));
+  if (existing) await browser.windows.update(existing.id, { focused: true });
+  else await browser.windows.create({ url: MINI_PLAYER_URL, type: "popup", ...MINI_PLAYER_SIZE });
+  window.close();
 });
 
 ui.launch.addEventListener("click", async () => {
@@ -203,14 +287,166 @@ ui.volume.addEventListener("change", () => {
   adjustingVolume = false;
 });
 
+// Mouse wheel anywhere on the remote: volume up / down.
+const WHEEL_VOLUME_STEP = 5;
+const WHEEL_SETTLE_MS = 400;
+let wheelTimer = null;
+
+document.addEventListener(
+  "wheel",
+  (event) => {
+    if (ui.player.hidden || ui.volume.disabled || !event.deltaY) return;
+    event.preventDefault();
+    const step = event.deltaY < 0 ? WHEEL_VOLUME_STEP : -WHEEL_VOLUME_STEP;
+    const value = Math.max(0, Math.min(100, Number(ui.volume.value) + step));
+    ui.volume.value = String(value);
+    // Same path as dragging the slider: one command at a time, last value wins.
+    adjustingVolume = true;
+    pendingVolume = value;
+    flushVolume();
+    clearTimeout(wheelTimer);
+    wheelTimer = setTimeout(() => (adjustingVolume = false), WHEEL_SETTLE_MS);
+  },
+  { passive: false },
+);
+
+// Settings row: folded by default in the toolbar popup to keep it small, the
+// choice is remembered. The mini-player has room: always shown, at the bottom
+// of the window, without the options button.
+function setOptionsShown(shown) {
+  ui.options.hidden = !shown;
+  ui.optionsToggle.setAttribute("aria-expanded", String(shown));
+  ui.optionsToggle.title = shown ? t("hideOptions") : t("showOptions");
+}
+if (detached) {
+  ui.optionsToggle.hidden = true;
+  ui.options.hidden = false;
+} else {
+  browser.storage.local.get("expanded").then(({ expanded = false }) => setOptionsShown(expanded));
+}
+ui.optionsToggle.addEventListener("click", () => {
+  const expanded = ui.options.hidden;
+  setOptionsShown(expanded);
+  browser.storage.local.set({ expanded }).catch(() => {});
+});
+
+// On/off buttons for a background setting (keyboard shortcuts, search menu,
+// auto-pause).
+function setupToggle(button, { get, set, titleOn, titleOff }) {
+  const render = ({ enabled }) => {
+    button.classList.toggle("active", enabled);
+    button.setAttribute("aria-pressed", String(enabled));
+    button.title = enabled ? t(titleOn) : t(titleOff);
+  };
+  browser.runtime.sendMessage({ type: get }).then(render);
+  button.addEventListener("click", async () => {
+    try {
+      const enabled = !button.classList.contains("active");
+      render(await browser.runtime.sendMessage({ type: set, enabled }));
+    } catch (err) {
+      showError(err.message);
+    }
+  });
+}
+
+setupToggle(ui.shortcuts, {
+  get: "remote:getShortcuts",
+  set: "remote:setShortcuts",
+  titleOn: "shortcutsOn",
+  titleOff: "shortcutsOff",
+});
+// No context menus on Android.
+ui.searchMenu.hidden = !browser.menus;
+setupToggle(ui.searchMenu, {
+  get: "remote:getSearchMenu",
+  set: "remote:setSearchMenu",
+  titleOn: "searchMenuOn",
+  titleOff: "searchMenuOff",
+});
+setupToggle(ui.autoPause, {
+  get: "remote:getAutoPause",
+  set: "remote:setAutoPause",
+  titleOn: "autoPauseOn",
+  titleOff: "autoPauseOff",
+});
+
+const COPIED_FEEDBACK_MS = 1500;
+ui.share.addEventListener("click", async () => {
+  if (!current.state?.link) return;
+  try {
+    await navigator.clipboard.writeText(current.state.link);
+    ui.share.classList.add("copied");
+    ui.share.title = t("linkCopied");
+    setTimeout(() => {
+      ui.share.classList.remove("copied");
+      ui.share.title = t("copyLink");
+    }, COPIED_FEEDBACK_MS);
+  } catch (err) {
+    showError(err.message);
+  }
+});
+
+ui.queue.addEventListener("click", async () => {
+  await call("remote:showQueue");
+  if (!current.state?.error) closePopup();
+});
+
 ui.seek.addEventListener("input", () => {
   seeking = true;
   ui.elapsed.textContent = formatTime(Number(ui.seek.value));
+  renderDuration();
+});
+
+ui.duration.addEventListener("click", () => {
+  showRemaining = !showRemaining;
+  renderDuration();
+  browser.storage.local.set({ showRemaining }).catch(() => {});
 });
 ui.seek.addEventListener("change", async () => {
   await command("seek", Number(ui.seek.value));
   seeking = false;
 });
+
+// Sleep timer: each click moves to the next duration, after the last one it
+// turns off. The background owns the timer (alarm), the popup only shows it.
+const SLEEP_DURATIONS = [15, 30, 60];
+let sleepEnd = null;
+let sleepDuration = 0;
+
+function renderSleepTimer() {
+  const remaining = sleepEnd ? Math.ceil((sleepEnd - Date.now()) / 60000) : 0;
+  const on = remaining > 0;
+  if (!on) sleepDuration = 0;
+  ui.sleep.classList.toggle("active", on);
+  ui.sleepMinutes.hidden = !on;
+  ui.sleepMinutes.textContent = on ? String(remaining) : "";
+  ui.sleep.title = on ? t("sleepTimerOn", String(remaining)) : t("sleepTimerOff");
+}
+
+async function setSleepTimer(minutes) {
+  try {
+    const { end } = await browser.runtime.sendMessage({ type: "remote:setSleepTimer", minutes });
+    sleepEnd = end;
+    sleepDuration = minutes;
+  } catch (err) {
+    showError(err.message);
+  }
+  renderSleepTimer();
+}
+
+ui.sleep.addEventListener("click", () => {
+  const next = SLEEP_DURATIONS.find((d) => d > sleepDuration) ?? 0;
+  setSleepTimer(next);
+});
+
+browser.runtime.sendMessage({ type: "remote:getSleepTimer" }).then(({ end }) => {
+  sleepEnd = end;
+  // Timer started in an earlier popup: resume the cycle from the closest duration.
+  const remaining = end ? (end - Date.now()) / 60000 : 0;
+  sleepDuration = remaining > 0 ? (SLEEP_DURATIONS.find((d) => d >= remaining) ?? 0) : 0;
+  renderSleepTimer();
+});
+setInterval(renderSleepTimer, 10000);
 
 // Updates pushed by the content script of the tracked Deezer tab.
 browser.runtime.onMessage.addListener((message, sender) => {
