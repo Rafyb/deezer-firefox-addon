@@ -61,7 +61,14 @@ button {
   .spinner { animation-duration: 2.4s; }
 }
 
+/* Mini-player window: follows the window size instead of the popup's. */
+html.detached body { width: auto; min-height: 100vh; display: flex; flex-direction: column; }
+/* Extra controls pushed to the bottom of the window. */
+html.detached .player { flex: 1; display: flex; flex-direction: column; }
+html.detached .options { margin-top: auto; }
+
 .track {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -78,6 +85,17 @@ button {
   object-fit: cover;
   box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
 }
+
+/* Top-right corner column, out of the flow: doesn't make the popup taller. */
+.corner {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: flex;
+  flex-direction: column;
+}
+.corner .icon { width: 30px; height: 30px; color: var(--muted); }
+.corner .icon:hover { color: var(--text); }
 
 .title, .artists {
   display: block;
@@ -103,6 +121,8 @@ button {
 .icon svg { width: 22px; height: 22px; fill: currentColor; }
 .icon.small svg { width: 18px; height: 18px; }
 .icon.active { color: var(--accent); }
+.icon:disabled, .unavailable { opacity: .35; cursor: default; }
+.icon:disabled:hover { background: none; }
 
 #like svg { fill: none; stroke: currentColor; stroke-width: 2; }
 #like.active svg { fill: var(--accent); stroke: var(--accent); }
@@ -131,6 +151,9 @@ button {
   font-size: 11px;
 }
 .progress input { flex: 1; accent-color: var(--accent); }
+/* Clickable duration / remaining time, wide enough for "-10:00". */
+.time { padding: 0; min-width: 34px; text-align: right; color: inherit; font-size: inherit; }
+.time:hover { color: var(--text); }
 
 .controls {
   display: flex;
@@ -152,7 +175,7 @@ button {
 .warning em { color: var(--text); font-style: normal; }
 .warning .link { color: var(--text); text-decoration: underline; }
 
-/* Heart, eye, mute and volume on a single row. */
+/* Options, heart, queue, mute and volume on a single row. */
 .footer {
   display: flex;
   align-items: center;
@@ -165,6 +188,22 @@ button {
 .footer input { flex: 1; min-width: 0; margin-left: 4px; accent-color: var(--accent); }
 .footer input:disabled { opacity: .4; }
 
+#options-toggle[aria-expanded="true"] { color: var(--accent); }
+
+/* Settings row, below the footer when the options button is on. */
+.options {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--surface);
+}
+.options .icon { width: 30px; height: 30px; }
+.row-label { flex: 1; color: var(--muted); font-size: 11px; }
+.options .icon:not(.active) { color: var(--muted); }
+#share.copied { color: var(--accent); }
+
 #mute .when-muted { display: none; }
 #mute.muted .when-muted { display: block; }
 #mute.muted .when-unmuted { display: none; }
@@ -174,6 +213,9 @@ button {
 #visibility.tab-hidden .when-hidden { display: block; }
 #visibility.tab-hidden .when-visible { display: none; }
 #visibility.tab-hidden { color: var(--muted); }
+
+/* Remaining minutes: up to 2 digits, slightly offset to clear the moon. */
+#sleep .badge { top: 1px; right: 0; }
 
 .link { color: var(--muted); padding: 2px 0; }
 .link:hover { color: var(--text); }

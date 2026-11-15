@@ -1,6 +1,6 @@
 {
   "name": "deezer-firefox-addon",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Firefox extension to control the Deezer web player from any tab",
   "author": "Raphael Bauvin",

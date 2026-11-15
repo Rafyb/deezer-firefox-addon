@@ -8,7 +8,7 @@ Open an issue with the **Bug report** template. Please include your Firefox vers
 
 ## Development setup
 
-Requirements: Node.js 20+ and Firefox 128+.
+Requirements: Node.js 20+ and Firefox 140+.
 
 ```bash
 npm install
@@ -26,7 +26,7 @@ All Deezer DOM selectors are in the `SELECTORS` object at the top of [`src/conte
 
 ## Translations
 
-Strings live in `src/_locales/<language>/messages.json`. To add a language, copy `src/_locales/en/messages.json` to a new folder named after the language code and translate the `message` values. In the popup HTML, strings are applied through the `data-i18n`, `data-i18n-title` and `data-i18n-aria-label` attributes (see `src/popup/i18n.js`).
+Strings live in `src/_locales/<language>/messages.json`. To add a language, copy `src/_locales/en/messages.json` to a new folder named after the language code and translate the `message` values. In the popup HTML, strings are applied through the `data-i18n`, `data-i18n-title` and `data-i18n-aria-label` attributes (see `src/shared/i18n.js`).
 
 ## Pull requests
 
