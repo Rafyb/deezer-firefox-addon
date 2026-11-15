@@ -18,7 +18,7 @@ npm run lint   # must pass before opening a pull request
 
 You can also load `src/manifest.json` from `about:debugging` in your everyday Firefox profile, where you are already logged in to Deezer.
 
-There is no build step: the files in `src/` are what ships.
+There is no build step for Firefox: the files in `src/` are what ships. The Chrome version is generated from them with `npm run build:chrome` (load `dist/chrome` from `chrome://extensions` with *Developer mode* on). Firefox/Chrome differences go through `src/shared/compat.js`, Chrome-only strings through `platform/chrome/_locales/`.
 
 ## When Deezer changes its UI
 
@@ -31,6 +31,6 @@ Strings live in `src/_locales/<language>/messages.json`. To add a language, copy
 ## Pull requests
 
 - Keep changes focused, one topic per pull request.
-- Run `npm run lint` and test in Firefox (visible tab and hidden tab) before submitting.
+- Run `npm run lint` and test in Firefox (visible tab and hidden tab) before submitting. If your change touches browser APIs, also test the Chrome build.
 - Add an entry to [CHANGELOG.md](CHANGELOG.md) under *Unreleased*.
 - Code comments are in English and explain *why*, not *what*.

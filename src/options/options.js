@@ -1,3 +1,4 @@
+import "../shared/compat.js";
 import { t, translatePage } from "../shared/i18n.js";
 
 translatePage();

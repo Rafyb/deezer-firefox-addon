@@ -1,6 +1,6 @@
 # Remote for Deezer
 
-A Firefox extension to control the Deezer web player from any tab — or with Deezer running in a hidden tab, out of the way.
+A Firefox and Chrome extension to control the Deezer web player from any tab — or, in Firefox, with Deezer running in a hidden tab, out of the way.
 
 > **Unofficial project.** Remote for Deezer is not affiliated with, endorsed by, or sponsored by Deezer. "Deezer" is a trademark of its respective owner.
 
@@ -46,6 +46,19 @@ Remote for Deezer is not published on [addons.mozilla.org](https://addons.mozill
 
 Temporary add-ons are removed when Firefox restarts. Requires Firefox 140 or later.
 
+### Chrome (and other Chromium browsers)
+
+Not on the Chrome Web Store yet. To install from source (Node.js 20+):
+
+1. Clone this repository and run `npm run build:chrome`. This creates `dist/chrome/`.
+2. Open `chrome://extensions`, turn on **Developer mode**.
+3. Click **Load unpacked** and select the `dist/chrome` folder.
+
+Requires Chrome 120 or later. The Chrome version has the same features, except:
+
+- **No background mode**: Chrome can't hide a tab. *Open Deezer in a background tab* opens it as a regular tab that isn't brought to the front, and there is no eye icon.
+- **Keyboard shortcuts** are managed in `chrome://extensions/shortcuts` only (no on/off button in the popup). Chrome gives at most four default shortcuts: the volume shortcuts start unassigned.
+
 ## Usage
 
 1. Log in to [deezer.com](https://www.deezer.com) in Firefox.
@@ -69,11 +82,11 @@ Remote for Deezer collects no data and has no server. It only talks to the Deeze
 | Permission | Why |
 |---|---|
 | `tabs` | Find the Deezer tab and read its state (muted, hidden, playing sound). With auto-pause on, detect other tabs playing sound. |
-| `tabHide` | Hide the Deezer tab in background mode. |
+| `tabHide` | Hide the Deezer tab in background mode (Firefox only). |
 | `scripting` | Re-inject the controller into a Deezer tab that lost it. |
 | `alarms` | Trigger the sleep timer, even if Firefox has unloaded the extension's background page meanwhile. |
 | `storage` | Remember your settings (including your shortcuts while they are turned off), and, for the current browser session only, which Deezer tab is the player, what auto-pause paused, the last notified track and which tabs have already been shown (see *Known limitations*). |
-| `menus` | Add *Search on Deezer* to the context menu of selected text. |
+| `menus` (`contextMenus` in Chrome) | Add *Search on Deezer* to the context menu of selected text. |
 | `notifications` *(optional)* | Track change notifications. Only requested when you turn them on in the options. |
 | `www.deezer.com` | Read the player state and click its controls. |
 
@@ -84,7 +97,10 @@ npm install
 npm start      # launches a test Firefox profile with the extension and deezer.com
 npm run lint   # web-ext lint (same checks as addons.mozilla.org)
 npm run build  # packages the extension into dist/
+npm run build:chrome  # Chrome version: dist/chrome/ (unpacked) and a zip for the Chrome Web Store
 ```
+
+`src/` is the Firefox extension as is. The Chrome version is generated from it by [`scripts/build-chrome.mjs`](scripts/build-chrome.mjs): Chrome manifest (service worker, PNG icons, permission names), plus the strings in `platform/chrome/_locales/` that differ in Chrome. Browser differences in the code go through [`src/shared/compat.js`](src/shared/compat.js).
 
 `npm start` uses a fresh Firefox profile, so you need to log in to Deezer again there.
 
@@ -92,14 +108,16 @@ npm run build  # packages the extension into dist/
 
 ```
 src/
-├── manifest.json        Manifest V3 (Firefox ≥ 140)
+├── manifest.json        Manifest V3 (Firefox ≥ 140; the Chrome manifest is generated from it)
 ├── background.js        Routes popup/shortcut commands to the Deezer tab, manages the hidden tab
 ├── content/deezer.js    Reads the player state and acts on the Deezer page (all DOM selectors live here)
 ├── popup/               Remote UI, also used as the mini-player window (popup.html/css/js, cover colors)
 ├── options/             Options page (track notifications)
-├── shared/              Code shared by the popup and the options page (i18n helper)
+├── shared/              Shared code: i18n helper, Firefox/Chrome compatibility
 ├── _locales/            Translations (en default, fr)
 └── icons/
+platform/chrome/         Chrome-specific strings
+scripts/build-chrome.mjs Builds the Chrome version
 ```
 
 Notes on the Deezer page structure and the Firefox quirks the extension works around are in [.ai/docs/deezer-dom.md](.ai/docs/deezer-dom.md) (in French).

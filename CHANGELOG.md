@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Chrome version, built from the same sources with `npm run build:chrome` (Chrome 120+). Same features except the hidden tab and turning shortcuts on/off from the popup, which Chrome doesn't allow.
+
+### Changed
+
+- Track change notifications without a usable cover show the extension icon.
+- The show/hide tab button is no longer shown where tabs can't be hidden (Firefox for Android).
+
 ## [0.2.0] - 2026-11-15
 
 ### Added

@@ -1,3 +1,4 @@
+import { CAN_HIDE_TABS, CAN_SET_SHORTCUTS, menus, onMessage, onTabUpdated, send } from "../shared/compat.js";
 import { extractCoverColors } from "./cover-colors.js";
 import { t, translatePage } from "../shared/i18n.js";
 
@@ -211,7 +212,7 @@ function render({ tab, state }) {
 async function call(type, extra = {}) {
   try {
     showError(null);
-    const result = await browser.runtime.sendMessage({ type, ...extra });
+    const result = await send({ type, ...extra });
     render(result);
     if (result?.state?.error) showError(result.state.error);
   } catch (err) {
@@ -228,7 +229,7 @@ ui.play.addEventListener("click", async () => {
   // Give the sound time to start, then check the tab is actually audible.
   await new Promise((resolve) => setTimeout(resolve, PLAY_CHECK_DELAY_MS));
   try {
-    const { tab, state } = await browser.runtime.sendMessage({ type: "remote:getStatus" });
+    const { tab, state } = await send({ type: "remote:getStatus" });
     // "unknown" (API missing): no warning rather than a false positive.
     playBlocked = !!tab && !tab.audible && state?.autoplay !== "allowed" && state?.autoplay !== "unknown";
     render({ tab, state });
@@ -386,8 +387,7 @@ function setupToggle(button, { get, set, key, titleOn, titleOff }) {
     button.title = enabled ? t(titleOn) : t(titleOff);
   };
   const refresh = () =>
-    browser.runtime
-      .sendMessage({ type: get })
+    send({ type: get })
       .then(render)
       .catch((err) => showError(err.message));
   refresh();
@@ -398,7 +398,7 @@ function setupToggle(button, { get, set, key, titleOn, titleOff }) {
     button.disabled = true;
     try {
       const enabled = !button.classList.contains("active");
-      render(await browser.runtime.sendMessage({ type: set, enabled }));
+      render(await send({ type: set, enabled }));
     } catch (err) {
       showError(err.message);
     } finally {
@@ -407,9 +407,12 @@ function setupToggle(button, { get, set, key, titleOn, titleOff }) {
   });
 }
 
-// No keyboard shortcuts nor context menus on Android.
-ui.shortcuts.hidden = !browser.commands;
-ui.searchMenu.hidden = !browser.menus;
+// No keyboard shortcuts nor context menus on Android. Chrome doesn't let the
+// extension turn its shortcuts off (chrome://extensions/shortcuts only).
+ui.shortcuts.hidden = !CAN_SET_SHORTCUTS;
+ui.searchMenu.hidden = !menus;
+// No hidden tabs outside Firefox.
+ui.visibility.hidden = !CAN_HIDE_TABS;
 setupToggle(ui.shortcuts, {
   get: "remote:getShortcuts",
   set: "remote:setShortcuts",
@@ -487,7 +490,7 @@ function renderSleepTimer() {
 
 async function setSleepTimer(minutes) {
   try {
-    const { end } = await browser.runtime.sendMessage({ type: "remote:setSleepTimer", minutes });
+    const { end } = await send({ type: "remote:setSleepTimer", minutes });
     sleepEnd = end;
     sleepDuration = minutes;
   } catch (err) {
@@ -505,7 +508,7 @@ ui.sleep.addEventListener("click", () => {
 // (mini-player open) or expire.
 async function loadSleepTimer() {
   try {
-    const { end } = await browser.runtime.sendMessage({ type: "remote:getSleepTimer" });
+    const { end } = await send({ type: "remote:getSleepTimer" });
     if (end === sleepEnd) return;
     sleepEnd = end;
     // Timer started elsewhere: resume the cycle from the closest duration.
@@ -532,8 +535,7 @@ function refreshStatus() {
     return refreshing;
   }
   refreshAgain = false;
-  refreshing = browser.runtime
-    .sendMessage({ type: "remote:getStatus", wake: false })
+  refreshing = send({ type: "remote:getStatus", wake: false })
     .then(render)
     .catch(() => {
       // Background unavailable: the next push retries.
@@ -546,8 +548,8 @@ function refreshStatus() {
 }
 
 // Updates pushed by the content script of the tracked Deezer tab.
-browser.runtime.onMessage.addListener((message, sender) => {
-  if (message?.type !== "state") return;
+onMessage((message, sender) => {
+  if (message?.type !== "state") return undefined;
   // Another Deezer tab (tracked tab closed, new one opened…), tab launched or
   // woken from the popup, or tracked tab leaving Deezer: let the background
   // pick the tab again.
@@ -558,15 +560,16 @@ browser.runtime.onMessage.addListener((message, sender) => {
     !message.state?.available
   ) {
     refreshStatus();
-    return;
+    return undefined;
   }
   render({ tab: current.tab, state: message.state });
+  return undefined;
 });
 
 // Tab info (hidden, muted, unloaded by Firefox or woken) changed outside this
 // page, e.g. from the toolbar popup while the mini-player is open, or tracked
 // tab closed.
-browser.tabs.onUpdated.addListener(
+onTabUpdated(
   (tabId) => {
     if (tabId === current.tab?.id) refreshStatus();
   },

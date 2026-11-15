@@ -3,6 +3,9 @@
 // All Deezer DOM selectors live here: this is the only file to update when
 // Deezer changes its UI.
 
+// Chrome: same API as `chrome` (`browser` only in recent versions).
+globalThis.browser ??= globalThis.chrome;
+
 // Guard against double injection (manifest + scripting.executeScript).
 if (!window.__remoteForDeezerLoaded) {
   window.__remoteForDeezerLoaded = true;
@@ -37,7 +40,7 @@ function setup() {
   // readState() can't do without looping with the MutationObserver.
   let volume = null;
 
-  // Error messages shown in the popup, in Firefox's language.
+  // Error messages shown in the popup, in the browser's language.
   const t = (key, ...substitutions) => browser.i18n.getMessage(key, substitutions);
 
   function q(name) {
@@ -240,24 +243,32 @@ function setup() {
 
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  browser.runtime.onMessage.addListener(async (message) => {
-    if (message?.type === "getState") return readState();
-    if (message?.type === "command") {
-      // A failed action returns the current state with the error: rejecting the
-      // promise would make the background think the tab isn't ready.
-      try {
-        const action = ACTIONS[message.action];
-        if (!action) throw new Error(t("errorUnknownAction", message.action));
-        await action(message.value);
-      } catch (err) {
-        return { ...readState(), error: err.message };
-      }
-      // Let React update the DOM before returning the state.
-      await wait(150);
-      return readState();
+  // Replies through sendResponse: returning a promise from the listener
+  // doesn't work in older Chrome versions.
+  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type === "getState") {
+      sendResponse(readState());
+      return false;
     }
-    return undefined;
+    if (message?.type !== "command") return false;
+    runAction(message).then(sendResponse);
+    return true;
   });
+
+  async function runAction(message) {
+    // A failed action returns the current state with the error: rejecting the
+    // promise would make the background think the tab isn't ready.
+    try {
+      const action = ACTIONS[message.action];
+      if (!action) throw new Error(t("errorUnknownAction", message.action));
+      await action(message.value);
+    } catch (err) {
+      return { ...readState(), error: err.message };
+    }
+    // Let React update the DOM before returning the state.
+    await wait(150);
+    return readState();
+  }
 
   // Push the state to the popup when the player changes (track, buttons, progress).
   let pushTimer = null;

@@ -1,10 +1,16 @@
-// Background (event page): routes popup and keyboard shortcut commands to the
-// Deezer tab, and manages the hidden Deezer tab.
+// Background (event page in Firefox, service worker in Chrome): routes popup
+// and keyboard shortcut commands to the Deezer tab, and manages the hidden
+// Deezer tab (Firefox only).
+
+import { CAN_HIDE_TABS, CAN_SET_SHORTCUTS, menus, onMessage, onTabUpdated } from "./shared/compat.js";
 
 const DEEZER_URL = "https://www.deezer.com/";
 const DEEZER_MATCH = "*://www.deezer.com/*";
 
 const READY_TIMEOUT_MS = 15000;
+
+// Notification icon when the cover can't be used (Chrome requires one).
+const NOTIFICATION_ICON = "icons/icon-128.png";
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -187,16 +193,17 @@ async function ensureForegroundedOnce(tabId) {
   if (wasHidden) await browser.tabs.hide(tab.id);
 }
 
-// Opens Deezer in a hidden tab (tabHide API, Firefox only).
+// Opens Deezer in a hidden tab (tabHide API, Firefox only). Elsewhere, in a
+// background tab.
 async function launchHidden() {
   const existing = await findDeezerTab();
   if (existing) {
-    if (!existing.active && !existing.hidden) await browser.tabs.hide(existing.id);
+    if (CAN_HIDE_TABS && !existing.active && !existing.hidden) await browser.tabs.hide(existing.id);
     return getStatus();
   }
   const tab = await browser.tabs.create({ url: DEEZER_URL, active: false });
   await rememberPlayerTab(tab.id);
-  await browser.tabs.hide(tab.id);
+  if (CAN_HIDE_TABS) await browser.tabs.hide(tab.id);
   // No getStatus(): the tab is still on about:blank and the URL lookup
   // wouldn't find it. The popup gets the full state once the content script
   // reports the player.
@@ -213,6 +220,7 @@ async function showTab() {
 }
 
 async function hideTab() {
+  if (!CAN_HIDE_TABS) return getStatus();
   const tab = await findDeezerTab();
   // Firefox refuses to hide the active tab: switch to another one first.
   if (tab && !tab.hidden) {
@@ -284,10 +292,12 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
 });
 
 // Toolbar icon tooltip: current track, or the extension name (manifest
-// default) when nothing is loaded. Follows one tab: the one playing, so that a
+// name) when nothing is loaded. Follows one tab: the one playing, so that a
 // paused second Deezer tab doesn't overwrite it. The followed tab is kept in
 // session storage: the title stays displayed after the event page unloads.
 let actionTitle;
+// Chrome refuses null (Firefox's "back to the manifest default").
+const DEFAULT_ACTION_TITLE = browser.i18n.getMessage("extensionName");
 const actionTitleTab = sessionValue("actionTitleTab");
 
 // Updates run one after the other: two pushes arriving together (one tab
@@ -305,7 +315,7 @@ async function updateActionTitle(tabId, state) {
   const title = state?.available && state.title ? `${state.title} - ${state.artists.join(", ")}` : null;
   if (title === actionTitle) return;
   actionTitle = title;
-  await browser.action.setTitle({ title });
+  await browser.action.setTitle({ title: title ?? DEFAULT_ACTION_TITLE });
 }
 
 // The followed tab is gone (closed, left Deezer, unloaded by Firefox): back to
@@ -313,12 +323,12 @@ async function updateActionTitle(tabId, state) {
 async function forgetActionTitleTab(tabId) {
   if (tabId !== (await actionTitleTab.get())) return;
   actionTitle = null;
-  await browser.action.setTitle({ title: null });
+  await browser.action.setTitle({ title: DEFAULT_ACTION_TITLE });
   await actionTitleTab.set(null);
 }
 
 browser.tabs.onRemoved.addListener((tabId) => queueActionTitle(() => forgetActionTitleTab(tabId)));
-browser.tabs.onUpdated.addListener(
+onTabUpdated(
   (tabId, changeInfo) => changeInfo.discarded && queueActionTitle(() => forgetActionTitleTab(tabId)),
   { properties: ["discarded"], urls: [DEEZER_MATCH] },
 );
@@ -335,7 +345,9 @@ async function followedTabGone(followed) {
 // Keyboard shortcuts on/off from the popup. Ignoring the commands wouldn't be
 // enough: the key combinations would stay taken from other apps and pages.
 // Turning off clears every shortcut and keeps them (including the user's own
-// choices) to restore them later; their presence means "off".
+// choices) to restore them later; their presence means "off". Firefox only:
+// Chrome doesn't let an extension change its shortcuts (the popup hides the
+// button).
 async function getShortcuts() {
   const { savedShortcuts } = await browser.storage.local.get("savedShortcuts");
   return { enabled: !savedShortcuts };
@@ -398,10 +410,10 @@ async function getSearchMenu() {
 
 async function createSearchMenu() {
   const { enabled } = await getSearchMenu();
-  await browser.menus.removeAll();
-  browser.menus.create({
+  await menus.removeAll();
+  menus.create({
     id: SEARCH_MENU,
-    // %s: replaced by Firefox with the selected text.
+    // %s: replaced by the browser with the selected text.
     title: browser.i18n.getMessage("searchOnDeezer"),
     contexts: ["selection"],
     visible: enabled,
@@ -415,7 +427,7 @@ async function createSearchMenu() {
 async function setSearchMenu(enabled) {
   await browser.storage.local.set({ searchMenuEnabled: enabled });
   try {
-    await browser.menus.update(SEARCH_MENU, { visible: enabled });
+    await menus.update(SEARCH_MENU, { visible: enabled });
   } catch {
     await createSearchMenu();
   }
@@ -423,10 +435,10 @@ async function setSearchMenu(enabled) {
 }
 
 // No menus API on Android.
-if (browser.menus) {
+if (menus) {
   browser.runtime.onInstalled.addListener(createSearchMenu);
   browser.runtime.onStartup.addListener(createSearchMenu);
-  browser.menus.onClicked.addListener(onSearchMenuClicked);
+  menus.onClicked.addListener(onSearchMenuClicked);
 }
 
 async function onSearchMenuClicked(info, tab) {
@@ -518,7 +530,7 @@ async function clearAutoPauseIfPlaying(state) {
   if (paused && Date.now() - paused.at > AUTO_PAUSE_GRACE_MS) await autoPaused.set(null);
 }
 
-browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => queueAutoPause(() => onOtherTabSound(tab)), {
+onTabUpdated((tabId, changeInfo, tab) => queueAutoPause(() => onOtherTabSound(tab)), {
   properties: ["audible", "mutedInfo"],
 });
 // A closed tab doesn't always report audible: false first. The paused Deezer
@@ -566,11 +578,12 @@ async function notifyTrackChange(tab, state) {
 
   const options = { type: "basic", title: state.title, message: state.artists.join(", ") };
   await browser.notifications.clear(TRACK_NOTIFICATION);
+  const fallbackIcon = browser.runtime.getURL(NOTIFICATION_ICON);
   try {
-    await browser.notifications.create(TRACK_NOTIFICATION, { ...options, iconUrl: state.cover ?? undefined });
+    await browser.notifications.create(TRACK_NOTIFICATION, { ...options, iconUrl: state.cover ?? fallbackIcon });
   } catch {
-    // Cover refused as an icon: notify without it.
-    await browser.notifications.create(TRACK_NOTIFICATION, options);
+    // Cover refused as an icon: notify with the extension icon.
+    await browser.notifications.create(TRACK_NOTIFICATION, { ...options, iconUrl: fallbackIcon });
   }
 }
 
@@ -605,7 +618,7 @@ const HANDLERS = {
   "remote:toggleMute": () => toggleMute(),
 };
 
-browser.runtime.onMessage.addListener((message, sender) => {
+onMessage((message, sender) => {
   // State pushed by the content script (also received by an open popup).
   // About once a second while playing, which keeps the event page loaded
   // during playback: the work done here must stay cheap (memory first).
@@ -639,6 +652,6 @@ if (browser.commands) {
     if (entry) runCommand(...entry);
   });
   browser.runtime.onInstalled.addListener(({ reason }) => {
-    if (reason === "update") keepShortcutsOff();
+    if (reason === "update" && CAN_SET_SHORTCUTS) keepShortcutsOff();
   });
 }

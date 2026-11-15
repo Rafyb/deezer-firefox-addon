@@ -2,11 +2,12 @@
   "name": "deezer-firefox-addon",
   "version": "0.2.0",
   "private": true,
-  "description": "Firefox extension to control the Deezer web player from any tab",
+  "description": "Firefox and Chrome extension to control the Deezer web player from any tab",
   "author": "Raphael Bauvin",
   "license": "MIT",
   "keywords": [
     "firefox",
+    "chrome",
     "webextension",
     "deezer",
     "music",
@@ -15,7 +16,8 @@
   "scripts": {
     "start": "web-ext run --source-dir src --start-url https://www.deezer.com",
     "lint": "web-ext lint --source-dir src",
-    "build": "web-ext build --source-dir src --artifacts-dir dist --overwrite-dest"
+    "build": "web-ext build --source-dir src --artifacts-dir dist --overwrite-dest",
+    "build:chrome": "node scripts/build-chrome.mjs"
   },
   "devDependencies": {
     "web-ext": "^8.3.0"

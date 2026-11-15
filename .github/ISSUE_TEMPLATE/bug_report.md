@@ -10,7 +10,7 @@ labels: bug
 
 **Environment**
 
-- Firefox version:
+- Browser and version (Firefox or Chrome):
 - Extension version:
 - Deezer tab state: visible / hidden / sleeping
 - Firefox language:

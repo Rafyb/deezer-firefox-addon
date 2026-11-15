@@ -1,0 +1,8 @@
+{
+  "launchHidden": { "message": "Open Deezer in a background tab" },
+  "deezerAsleep": { "message": "Chrome put the Deezer tab to sleep." },
+  "optionNotifyTrackChangeHint": { "message": "Shows a system notification with the title and artists, unless the Deezer tab is on screen. Chrome asks for the notifications permission." },
+  "autoplayBlockedTitle": { "message": "Chrome is blocking sound on Deezer" },
+  "autoplayMenu": { "message": "Site settings" },
+  "autoplayOption": { "message": "Sound: Allow" }
+}

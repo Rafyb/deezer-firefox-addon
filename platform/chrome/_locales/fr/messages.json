@@ -1,0 +1,8 @@
+{
+  "launchHidden": { "message": "Ouvrir Deezer dans un onglet en arrière-plan" },
+  "deezerAsleep": { "message": "Chrome a mis l'onglet Deezer en veille." },
+  "optionNotifyTrackChangeHint": { "message": "Affiche une notification système avec le titre et les artistes, sauf si l'onglet Deezer est à l'écran. Chrome demande la permission des notifications." },
+  "autoplayBlockedTitle": { "message": "Chrome bloque le son sur Deezer" },
+  "autoplayMenu": { "message": "Paramètres des sites" },
+  "autoplayOption": { "message": "Son : Autoriser" }
+}
