@@ -145,13 +145,26 @@ function render({ tab, state }) {
   ui.empty.hidden = !!ready;
   ui.player.hidden = !ready;
   if (!ready) {
+    // Asleep: tab unloaded by Firefox while this page was open, left asleep
+    // until the user asks. No player in a loaded page: Deezer may still be
+    // starting, or wait for the user (logged out, consent page…): offer to
+    // show the tab rather than spin forever.
+    const asleep = !!tab && !!state?.asleep;
+    const noPlayer = !!tab && !asleep && !tab.discarded && tab.loaded;
+    const mode = !tab ? "launch" : asleep ? "wake" : noPlayer ? "show" : null;
     ui.emptyMessage.textContent = !tab
       ? t("noDeezerTab")
-      : tab.discarded
-        ? t("deezerWaking")
-        : t("deezerLoading");
-    ui.launch.hidden = !!tab;
-    ui.spinner.hidden = !tab;
+      : asleep
+        ? t("deezerAsleep")
+        : tab.discarded
+          ? t("deezerWaking")
+          : noPlayer
+            ? t("deezerNoPlayer")
+            : t("deezerLoading");
+    ui.launch.dataset.mode = mode ?? "";
+    ui.launch.textContent = t({ launch: "launchHidden", wake: "wakeDeezer", show: "showDeezerTab" }[mode] ?? "launchHidden");
+    ui.launch.hidden = !mode;
+    ui.spinner.hidden = !tab || asleep;
     return;
   }
 
@@ -214,10 +227,14 @@ ui.play.addEventListener("click", async () => {
   if (wasPlaying) return;
   // Give the sound time to start, then check the tab is actually audible.
   await new Promise((resolve) => setTimeout(resolve, PLAY_CHECK_DELAY_MS));
-  const { tab, state } = await browser.runtime.sendMessage({ type: "remote:getStatus" });
-  // "unknown" (API missing): no warning rather than a false positive.
-  playBlocked = !!tab && !tab.audible && state?.autoplay !== "allowed" && state?.autoplay !== "unknown";
-  render({ tab, state });
+  try {
+    const { tab, state } = await browser.runtime.sendMessage({ type: "remote:getStatus" });
+    // "unknown" (API missing): no warning rather than a false positive.
+    playBlocked = !!tab && !tab.audible && state?.autoplay !== "allowed" && state?.autoplay !== "unknown";
+    render({ tab, state });
+  } catch (err) {
+    showError(err.message);
+  }
 });
 ui.next.addEventListener("click", () => command("next"));
 ui.previous.addEventListener("click", () => command("previous"));
@@ -254,6 +271,17 @@ ui.detach.addEventListener("click", async () => {
 });
 
 ui.launch.addEventListener("click", async () => {
+  const { mode } = ui.launch.dataset;
+  // Sleeping tab: wake it up.
+  if (mode === "wake") {
+    await call("remote:getStatus");
+    return;
+  }
+  if (mode === "show") {
+    await call("remote:showTab");
+    closePopup();
+    return;
+  }
   // Show the loading state right away, without waiting for the tab to be created.
   ui.launch.hidden = true;
   ui.spinner.hidden = false;
@@ -492,39 +520,58 @@ async function loadSleepTimer() {
 loadSleepTimer();
 setInterval(loadSleepTimer, 10000);
 
-// Full refresh (tab info included), at most one at a time. Not through call():
-// it would clear an error the user hasn't read yet.
+// Full refresh (tab info included), one at a time. Not through call(): it
+// would clear an error the user hasn't read yet. A request arriving during a
+// refresh runs another one afterwards: the running one may predate the change.
+// Never wakes a tab Firefox unloaded: shown asleep instead.
 let refreshing = null;
+let refreshAgain = false;
 function refreshStatus() {
-  refreshing ??= browser.runtime
-    .sendMessage({ type: "remote:getStatus" })
+  if (refreshing) {
+    refreshAgain = true;
+    return refreshing;
+  }
+  refreshAgain = false;
+  refreshing = browser.runtime
+    .sendMessage({ type: "remote:getStatus", wake: false })
     .then(render)
     .catch(() => {
       // Background unavailable: the next push retries.
     })
-    .finally(() => (refreshing = null));
+    .finally(() => {
+      refreshing = null;
+      if (refreshAgain) refreshStatus();
+    });
   return refreshing;
 }
 
 // Updates pushed by the content script of the tracked Deezer tab.
 browser.runtime.onMessage.addListener((message, sender) => {
   if (message?.type !== "state") return;
-  // Another Deezer tab (tracked tab closed, new one opened…), or tab launched
-  // or woken from the popup: let the background pick the tab again.
-  if (!current.tab || sender.tab?.id !== current.tab.id || !current.state?.available) {
+  // Another Deezer tab (tracked tab closed, new one opened…), tab launched or
+  // woken from the popup, or tracked tab leaving Deezer: let the background
+  // pick the tab again.
+  if (
+    !current.tab ||
+    sender.tab?.id !== current.tab.id ||
+    !current.state?.available ||
+    !message.state?.available
+  ) {
     refreshStatus();
     return;
   }
   render({ tab: current.tab, state: message.state });
 });
 
-// Tab info (hidden, muted) changed outside this page, e.g. from the toolbar
-// popup while the mini-player is open, or tracked tab closed.
+// Tab info (hidden, muted, unloaded by Firefox or woken) changed outside this
+// page, e.g. from the toolbar popup while the mini-player is open, or tracked
+// tab closed.
 browser.tabs.onUpdated.addListener(
   (tabId) => {
     if (tabId === current.tab?.id) refreshStatus();
   },
-  { properties: ["hidden", "mutedInfo", "discarded"] },
+  // status: page (re)loaded, possibly without a player and so without pushes.
+  { properties: ["hidden", "mutedInfo", "discarded", "status"] },
 );
 browser.tabs.onRemoved.addListener((tabId) => {
   if (tabId === current.tab?.id) refreshStatus();

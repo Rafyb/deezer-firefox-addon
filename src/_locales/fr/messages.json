@@ -13,6 +13,9 @@
   "loading": { "message": "Chargement" },
   "deezerLoading": { "message": "Deezer est en cours de chargement…" },
   "deezerWaking": { "message": "Réveil de l'onglet Deezer en veille…" },
+  "deezerAsleep": { "message": "Firefox a mis l'onglet Deezer en veille." },
+  "wakeDeezer": { "message": "Réveiller Deezer" },
+  "deezerNoPlayer": { "message": "En attente du lecteur Deezer… S'il n'apparaît pas, ouvrez l'onglet Deezer (connexion, bandeau cookies…)." },
   "noTitle": { "message": "Aucun titre" },
 
   "showDeezerTab": { "message": "Afficher l'onglet Deezer" },

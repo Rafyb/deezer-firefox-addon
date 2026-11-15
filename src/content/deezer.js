@@ -285,6 +285,18 @@ function setup() {
     return true;
   }
 
+  // Leaving the page (other site, reload): the toolbar tooltip and an open
+  // popup stop showing this track. Best effort, the page is going away.
+  window.addEventListener("pagehide", () => {
+    clearTimeout(pushTimer);
+    pushTimer = null;
+    browser.runtime.sendMessage({ type: "state", state: { available: false } }).catch(() => {});
+  });
+  // Back from the back/forward cache: tell them again.
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) schedulePush();
+  });
+
   // The player renders after the app loads: wait for it to appear.
   if (!observePlayer()) {
     const bootstrap = new MutationObserver(() => {

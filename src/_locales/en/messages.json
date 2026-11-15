@@ -13,6 +13,9 @@
   "loading": { "message": "Loading" },
   "deezerLoading": { "message": "Deezer is loading…" },
   "deezerWaking": { "message": "Waking up the sleeping Deezer tab…" },
+  "deezerAsleep": { "message": "Firefox put the Deezer tab to sleep." },
+  "wakeDeezer": { "message": "Wake Deezer up" },
+  "deezerNoPlayer": { "message": "Waiting for the Deezer player… If it doesn't show up, open the Deezer tab (login, cookie banner…)." },
   "noTitle": { "message": "No track" },
 
   "showDeezerTab": { "message": "Show the Deezer tab" },
