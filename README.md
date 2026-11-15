@@ -6,7 +6,7 @@ A Firefox extension to control the Deezer web player from any tab — or with De
 
 ## Features
 
-- **Popup remote**: cover art and track info on a background gradient taken from the cover colors, seekable progress bar (click the duration to show the remaining time), play/pause, previous/next, shuffle, repeat, Favourite tracks, volume (also with the mouse wheel anywhere on the remote), tab mute. Icons in the top-right corner: open the mini-player, show/hide the Deezer tab, copy the track link. Next to the heart, the queue button shows the queue in the Deezer tab. The gear at the bottom left shows the *Options* row (always shown at the bottom of the mini-player window): sleep timer, and on/off toggles for keyboard shortcuts, the "Search on Deezer" menu and auto-pause.
+- **Popup remote**: cover art and track info on a background gradient taken from the cover colors, seekable progress bar (click the duration to show the remaining time), play/pause, previous/next, shuffle, repeat, Favourite tracks, volume (also with the mouse wheel over the remote), tab mute. Icons in the top-right corner: open the mini-player, show/hide the Deezer tab, copy the track link. Next to the heart, the queue button shows the queue in the Deezer tab. The gear at the bottom left shows the *Options* row (always shown at the bottom of the mini-player window): sleep timer, and on/off toggles for keyboard shortcuts, the "Search on Deezer" menu and auto-pause.
 - **Search on Deezer**: right-click selected text on any page → *Search "…" on Deezer* opens the Deezer search in a new tab (a new tab so the music keeps playing). Can be turned off from the popup.
 - **Auto-pause** *(opt-in)*: Deezer pauses when another tab starts playing sound (a video, a call) and resumes when it stops. It only resumes what it paused itself.
 - **Toolbar tooltip**: hover the toolbar icon to see the current track.
@@ -85,8 +85,9 @@ src/
 ├── manifest.json        Manifest V3 (Firefox ≥ 140)
 ├── background.js        Routes popup/shortcut commands to the Deezer tab, manages the hidden tab
 ├── content/deezer.js    Reads the player state and acts on the Deezer page (all DOM selectors live here)
-├── popup/               Remote UI, also used as the mini-player window (popup.html/css/js, cover colors, i18n helper)
+├── popup/               Remote UI, also used as the mini-player window (popup.html/css/js, cover colors)
 ├── options/             Options page (track notifications)
+├── shared/              Code shared by the popup and the options page (i18n helper)
 ├── _locales/            Translations (en default, fr)
 └── icons/
 ```

@@ -1,4 +1,4 @@
-import { t, translatePage } from "../popup/i18n.js";
+import { t, translatePage } from "../shared/i18n.js";
 
 translatePage();
 
@@ -24,6 +24,8 @@ checkbox.addEventListener("change", async () => {
       error.hidden = false;
     }
     await browser.storage.local.set({ notifyTrackChange: checkbox.checked });
+    // Option off: give the permission back, it's only needed for this option.
+    if (!checkbox.checked) await browser.permissions.remove(NOTIFICATIONS);
   } catch (err) {
     error.textContent = err.message;
     error.hidden = false;

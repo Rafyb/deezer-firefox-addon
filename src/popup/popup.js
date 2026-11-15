@@ -1,5 +1,5 @@
 import { extractCoverColors } from "./cover-colors.js";
-import { t, translatePage } from "./i18n.js";
+import { t, translatePage } from "../shared/i18n.js";
 
 translatePage();
 
@@ -287,25 +287,42 @@ ui.volume.addEventListener("change", () => {
   adjustingVolume = false;
 });
 
-// Mouse wheel anywhere on the remote: volume up / down.
+// Mouse wheel on the remote: volume up / down. Not over the settings row and
+// the autoplay warning, so the page can still scroll (mini-player). Touchpads
+// send many small pixel deltas: accumulate them into notch-sized steps.
 const WHEEL_VOLUME_STEP = 5;
+const WHEEL_PIXELS_PER_STEP = 50;
 const WHEEL_SETTLE_MS = 400;
 let wheelTimer = null;
+let wheelPixels = 0;
 
-document.addEventListener(
+function wheelSteps(event) {
+  if (event.deltaMode !== WheelEvent.DOM_DELTA_PIXEL) return -Math.sign(event.deltaY);
+  wheelPixels += event.deltaY;
+  const steps = Math.trunc(wheelPixels / WHEEL_PIXELS_PER_STEP);
+  wheelPixels -= steps * WHEEL_PIXELS_PER_STEP;
+  return -steps;
+}
+
+ui.player.addEventListener(
   "wheel",
   (event) => {
-    if (ui.player.hidden || ui.volume.disabled || !event.deltaY) return;
+    if (ui.volume.disabled || !event.deltaY) return;
+    if (event.target.closest("#options, #autoplay-warning")) return;
     event.preventDefault();
-    const step = event.deltaY < 0 ? WHEEL_VOLUME_STEP : -WHEEL_VOLUME_STEP;
-    const value = Math.max(0, Math.min(100, Number(ui.volume.value) + step));
+    const steps = wheelSteps(event);
+    clearTimeout(wheelTimer);
+    wheelTimer = setTimeout(() => {
+      adjustingVolume = false;
+      wheelPixels = 0;
+    }, WHEEL_SETTLE_MS);
+    if (!steps) return;
+    const value = Math.max(0, Math.min(100, Number(ui.volume.value) + steps * WHEEL_VOLUME_STEP));
     ui.volume.value = String(value);
     // Same path as dragging the slider: one command at a time, last value wins.
     adjustingVolume = true;
     pendingVolume = value;
     flushVolume();
-    clearTimeout(wheelTimer);
-    wheelTimer = setTimeout(() => (adjustingVolume = false), WHEEL_SETTLE_MS);
   },
   { passive: false },
 );
@@ -331,41 +348,58 @@ ui.optionsToggle.addEventListener("click", () => {
 });
 
 // On/off buttons for a background setting (keyboard shortcuts, search menu,
-// auto-pause).
-function setupToggle(button, { get, set, titleOn, titleOff }) {
+// auto-pause). Kept in sync when the setting changes elsewhere (toolbar popup
+// vs mini-player) through its storage key. Disabled while a change is running.
+function setupToggle(button, { get, set, key, titleOn, titleOff }) {
+  if (button.hidden) return;
   const render = ({ enabled }) => {
     button.classList.toggle("active", enabled);
     button.setAttribute("aria-pressed", String(enabled));
     button.title = enabled ? t(titleOn) : t(titleOff);
   };
-  browser.runtime.sendMessage({ type: get }).then(render);
+  const refresh = () =>
+    browser.runtime
+      .sendMessage({ type: get })
+      .then(render)
+      .catch((err) => showError(err.message));
+  refresh();
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && key in changes) refresh();
+  });
   button.addEventListener("click", async () => {
+    button.disabled = true;
     try {
       const enabled = !button.classList.contains("active");
       render(await browser.runtime.sendMessage({ type: set, enabled }));
     } catch (err) {
       showError(err.message);
+    } finally {
+      button.disabled = false;
     }
   });
 }
 
+// No keyboard shortcuts nor context menus on Android.
+ui.shortcuts.hidden = !browser.commands;
+ui.searchMenu.hidden = !browser.menus;
 setupToggle(ui.shortcuts, {
   get: "remote:getShortcuts",
   set: "remote:setShortcuts",
+  key: "savedShortcuts",
   titleOn: "shortcutsOn",
   titleOff: "shortcutsOff",
 });
-// No context menus on Android.
-ui.searchMenu.hidden = !browser.menus;
 setupToggle(ui.searchMenu, {
   get: "remote:getSearchMenu",
   set: "remote:setSearchMenu",
+  key: "searchMenuEnabled",
   titleOn: "searchMenuOn",
   titleOff: "searchMenuOff",
 });
 setupToggle(ui.autoPause, {
   get: "remote:getAutoPause",
   set: "remote:setAutoPause",
+  key: "autoPauseEnabled",
   titleOn: "autoPauseOn",
   titleOff: "autoPauseOff",
 });
@@ -439,25 +473,54 @@ ui.sleep.addEventListener("click", () => {
   setSleepTimer(next);
 });
 
-browser.runtime.sendMessage({ type: "remote:getSleepTimer" }).then(({ end }) => {
-  sleepEnd = end;
-  // Timer started in an earlier popup: resume the cycle from the closest duration.
-  const remaining = end ? (end - Date.now()) / 60000 : 0;
-  sleepDuration = remaining > 0 ? (SLEEP_DURATIONS.find((d) => d >= remaining) ?? 0) : 0;
-  renderSleepTimer();
-});
-setInterval(renderSleepTimer, 10000);
+// Also re-read periodically: the timer may be changed from another popup
+// (mini-player open) or expire.
+async function loadSleepTimer() {
+  try {
+    const { end } = await browser.runtime.sendMessage({ type: "remote:getSleepTimer" });
+    if (end === sleepEnd) return;
+    sleepEnd = end;
+    // Timer started elsewhere: resume the cycle from the closest duration.
+    const remaining = end ? (end - Date.now()) / 60000 : 0;
+    sleepDuration = remaining > 0 ? (SLEEP_DURATIONS.find((d) => d >= remaining) ?? 0) : 0;
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    renderSleepTimer();
+  }
+}
+loadSleepTimer();
+setInterval(loadSleepTimer, 10000);
+
+// Full refresh (tab info included), at most one at a time.
+let refreshing = null;
+function refreshStatus() {
+  refreshing ??= call("remote:getStatus").finally(() => (refreshing = null));
+  return refreshing;
+}
 
 // Updates pushed by the content script of the tracked Deezer tab.
 browser.runtime.onMessage.addListener((message, sender) => {
   if (message?.type !== "state") return;
-  if (current.tab && sender.tab?.id !== current.tab.id) return;
-  if (!current.tab || !current.state?.available) {
-    // Tab launched or woken from the popup: refresh its tab info too.
-    call("remote:getStatus");
+  // Another Deezer tab (tracked tab closed, new one opened…), or tab launched
+  // or woken from the popup: let the background pick the tab again.
+  if (!current.tab || sender.tab?.id !== current.tab.id || !current.state?.available) {
+    refreshStatus();
     return;
   }
   render({ tab: current.tab, state: message.state });
+});
+
+// Tab info (hidden, muted) changed outside this page, e.g. from the toolbar
+// popup while the mini-player is open, or tracked tab closed.
+browser.tabs.onUpdated.addListener(
+  (tabId) => {
+    if (tabId === current.tab?.id) refreshStatus();
+  },
+  { properties: ["hidden", "mutedInfo", "discarded"] },
+);
+browser.tabs.onRemoved.addListener((tabId) => {
+  if (tabId === current.tab?.id) refreshStatus();
 });
 
 call("remote:getStatus");

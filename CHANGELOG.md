@@ -11,7 +11,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - Mini-player: open the remote in its own window from the popup.
 - Opt-in track change notifications, from the new options page (optional `notifications` permission).
 - Click the track duration to show the remaining time.
-- Mouse wheel on the remote changes the volume.
+- Mouse wheel on the remote changes the volume (not over the Options row, so the mini-player can still scroll).
 - Toolbar icon tooltip shows the current track.
 - Opt-in auto-pause: Deezer pauses while another tab plays sound, and resumes afterwards.
 - "Search on Deezer" in the context menu of selected text, can be turned off from the popup (new `menus` permission).

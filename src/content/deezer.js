@@ -157,26 +157,59 @@ function setup() {
   // volume so the next play isn't silent. One step per second: Firefox
   // throttles timers in background tabs to 1 s anyway. The volume menu is
   // reopened at each step rather than held open, in case Deezer closes it.
+  // The fade is only a nicety: if the volume menu can't be used, pause anyway.
   const FADE_STEPS = 15;
   const FADE_STEP_MS = 1000;
 
+  // Running fade. Cancelled by a new sleep timer (keeps playing, volume
+  // restored) or by a volume change from the user (keeps their volume).
+  let fade = null;
+
+  function cancelFade({ restore }) {
+    if (!fade) return;
+    fade.cancelled = true;
+    fade.restore = restore;
+  }
+
   async function fadeOutAndPause() {
-    if (!readState().playing) return;
-    await withVolumeBar(() => {});
-    const initial = volume;
+    if (!readState().playing || fade) return;
+    const current = (fade = { cancelled: false, restore: true });
+    let initial = null;
     try {
-      for (let i = FADE_STEPS - 1; i >= 0; i--) {
-        // Paused by the user meanwhile: stop fading.
-        if (!readState().playing) return;
-        await setVolume(Math.round((initial * i) / FADE_STEPS));
-        await wait(FADE_STEP_MS);
+      try {
+        await withVolumeBar(() => {});
+        initial = volume;
+        for (let i = FADE_STEPS - 1; i >= 0 && !current.cancelled; i--) {
+          // Paused by the user meanwhile: stop fading.
+          if (!readState().playing) return;
+          await setVolume(Math.round((initial * i) / FADE_STEPS));
+          schedulePush();
+          await wait(FADE_STEP_MS);
+        }
+      } catch {
+        // Volume menu unavailable: pause without fading.
       }
+      if (current.cancelled) return;
       if (readState().playing) click("play");
       // Let the pause take effect before turning the sound back up.
       await wait(500);
     } finally {
-      await setVolume(initial);
+      fade = null;
+      if (initial != null && current.restore) {
+        try {
+          await setVolume(initial);
+          schedulePush();
+        } catch {
+          // Volume menu unavailable: nothing to restore.
+        }
+      }
     }
+  }
+
+  // Volume set by the user: wins over a running fade.
+  function userVolume(fn) {
+    cancelFade({ restore: false });
+    return fn();
   }
 
   const ACTIONS = {
@@ -190,14 +223,15 @@ function setup() {
     toggleLike: () => click("like"),
     seek: (value) => seek(value),
     readVolume: () => withVolumeBar(() => {}),
-    setVolume: (value) => setVolume(value),
+    setVolume: (value) => userVolume(() => setVolume(value)),
     fadeOutAndPause: () => fadeOutAndPause(),
+    cancelFade: () => cancelFade({ restore: true }),
     // Toggle button: only click when the panel isn't already open.
     openQueue: () => document.querySelector(QUEUE_PANEL) || click("queue"),
     // Keyboard shortcuts: relative to the slider's current value, the cache
     // may be stale (volume changed in the Deezer page).
     changeVolume: async (delta) => {
-      await withVolumeBar((bar) => setSlider(bar, Number(bar.value) + delta));
+      await userVolume(() => withVolumeBar((bar) => setSlider(bar, Number(bar.value) + delta)));
       // The slider lives outside #page_player: the observer doesn't see the
       // change, so tell an open popup.
       schedulePush();

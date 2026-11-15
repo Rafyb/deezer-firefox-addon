@@ -28,7 +28,7 @@ Les raccourcis volume +/− (`changeVolume`) partent de la valeur du slider, pas
 
 ## Minuterie de veille
 
-Le background crée une alarme `sleep-timer` (`browser.alarms`, qui survit au déchargement de l'event page, contrairement à `setTimeout`). Son `scheduledTime` est le seul état : le popup le lit avec `remote:getSleepTimer` et affiche les minutes restantes. À l'échéance, le background envoie `fadeOutAndPause` à l'onglet Deezer, sans le réveiller s'il est en veille. Le content script baisse le volume en 15 paliers d'une seconde, rouvrant le menu volume à chaque palier au cas où Deezer le refermerait, met en pause, attend 500 ms puis remet le volume initial. Si l'utilisateur met en pause pendant le fondu, celui-ci s'arrête et le volume est restauré.
+Le background crée une alarme `sleep-timer` (`browser.alarms`, qui survit au déchargement de l'event page, contrairement à `setTimeout`). Son `scheduledTime` est le seul état : le popup le lit avec `remote:getSleepTimer` et affiche les minutes restantes. À l'échéance, le background envoie `fadeOutAndPause` à l'onglet Deezer, sans le réveiller s'il est en veille. Le content script baisse le volume en 15 paliers d'une seconde, rouvrant le menu volume à chaque palier au cas où Deezer le refermerait, met en pause, attend 500 ms puis remet le volume initial. Le fondu est facultatif : si le menu volume est inutilisable (bouton absent, slider qui n'apparaît pas), la pause a lieu quand même. Si l'utilisateur met en pause pendant le fondu, celui-ci s'arrête et le volume est restauré. Un changement de volume par l'utilisateur annule le fondu sans pause et garde son volume ; un nouveau réglage de la minuterie (`cancelFade`) l'annule et restaure le volume. À l'échéance, le drapeau d'auto-pause est effacé, pour que la fin d'une vidéo ne relance pas la musique.
 
 ## Mini-lecteur
 
@@ -36,7 +36,7 @@ Même page que le popup, ouverte avec `?detached` dans une fenêtre `windows.cre
 
 ## Notifications de changement de titre
 
-Option désactivée par défaut, page d'options (`options_ui`), permission `notifications` optionnelle demandée au moment où l'utilisateur coche la case. Le background reçoit aussi les états poussés par le content script (`type: "state"`). Ces états arrivent plusieurs fois par seconde pendant la lecture, donc les vérifications sont chaînées pour ne pas notifier deux fois. Le dernier titre est gardé dans `storage.session`, car l'event page se décharge quand Deezer est en pause. Pas de notification si Deezer est en pause ou si l'onglet est actif dans la fenêtre au premier plan. Firefox ne gère pas les boutons dans les notifications : un clic affiche l'onglet Deezer. La pochette sert d'icône ; si Firefox la refuse, la notification part sans icône.
+Option désactivée par défaut, page d'options (`options_ui`), permission `notifications` optionnelle demandée au moment où l'utilisateur coche la case. Le background reçoit aussi les états poussés par le content script (`type: "state"`). Ces états arrivent plusieurs fois par seconde pendant la lecture, donc les vérifications sont chaînées pour ne pas notifier deux fois. Le dernier titre (titre, artistes et lien, qui contient l'id du morceau) est gardé dans `storage.session`, car l'event page se décharge quand Deezer est en pause, et en mémoire pour que les états d'un même titre ne coûtent rien. Conséquence de ces états poussés chaque seconde : l'event page reste chargée pendant la lecture ; le traitement de chaque état lit donc d'abord la mémoire (onglet lecteur, `autoPausedAt`, dernier titre) plutôt que `storage.session`. Pas de notification si Deezer est en pause ou si l'onglet est actif dans la fenêtre au premier plan. Firefox ne gère pas les boutons dans les notifications : un clic affiche l'onglet Deezer. La pochette sert d'icône ; si Firefox la refuse, la notification part sans icône.
 
 ## Lien du titre
 
@@ -48,7 +48,9 @@ Le bouton clavier de la ligne Options ne se contente pas d'ignorer les commandes
 
 ## Recherche depuis le texte sélectionné
 
-Entrée de menu contextuel (`menus`, contexte `selection`), activée par défaut, désactivable depuis la ligne Options du popup (`searchMenuEnabled` dans `storage.local`). Le menu est recréé à `runtime.onInstalled`, à `runtime.onStartup` et à chaque bascule (`removeAll` puis `create` avec `visible`). La recherche s'ouvre dans un nouvel onglet, à droite de l'onglet courant (`https://www.deezer.com/search/<texte>`) : naviguer dans l'onglet Deezer existant le rechargerait et couperait la musique.
+Entrée de menu contextuel (`menus`, contexte `selection`), activée par défaut, désactivable depuis la ligne Options du popup (`searchMenuEnabled` dans `storage.local`). Le menu est recréé à `runtime.onInstalled` et `runtime.onStartup` (`removeAll` puis `create` avec `visible`) ; une bascule ne fait que `menus.update({ visible })`, car deux recréations rapprochées s'entrelaceraient. La recherche s'ouvre dans un nouvel onglet, à droite de l'onglet courant (`https://www.deezer.com/search/<texte>`) : naviguer dans l'onglet Deezer existant le rechargerait et couperait la musique.
+
+Cet onglet est une page Deezer complète : pour que la télécommande ne bascule pas dessus, le background retient l'onglet lecteur (`playerTabId` dans `storage.session`), mis à jour au lancement en arrière-plan, à chaque état « en lecture » et juste avant d'ouvrir une recherche. `findDeezerTab` choisit l'onglet audible, puis l'onglet lecteur, puis un onglet chargé, puis un onglet en veille.
 
 ## Pause automatique
 
